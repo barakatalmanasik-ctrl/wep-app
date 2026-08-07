@@ -1,0 +1,27 @@
+# مجلدات المشاريع القديمة (لا تُنشر)
+barakat_account/
+electron-app/
+web-app/
+pure-app/
+
+# سكربتات التشغيل المحلي فقط
+server.ps1
+launcher.ps1
+launch.vbs
+create_shortcut.ps1
+watchdog.ps1
+
+# ملفات التشغيل المحلي
+server.pid
+server.port
+*.log
+watchdog_stderr.txt
+watchdog_stdout.txt
+
+# ملفات قاعدة البيانات (تُنفذ يدوياً في Supabase)
+supabase/
+
+# التطوير
+AGENTS.md
+CHANGELOG.md
+config.example.js

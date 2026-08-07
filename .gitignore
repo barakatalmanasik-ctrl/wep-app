@@ -29,7 +29,13 @@ watchdog_stderr.txt
 *.p12
 *.pfx
 
+# بيانات التطبيق الحقيقية (مستثنى من git دائماً)
+config.js
+
 # OS
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# مجلد pure-app القديم (بقي فارغاً بعد نقل المشروع إلى الجذر)
+pure-app/
