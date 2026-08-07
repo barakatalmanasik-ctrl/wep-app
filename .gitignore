@@ -1,0 +1,40 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Build outputs (إعادة إنشائها عبر build.bat)
+dist/
+release/
+Release/
+out/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Runtime / temp files
+*.log
+*.pid
+*.port
+watchdog_stdout.txt
+watchdog_stderr.txt
+*.tmp
+*.bak
+
+# Environment & secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini

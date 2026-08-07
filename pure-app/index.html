@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بركات المناسك — نظام إدارة التذاكر</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a6b4e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="بركات المناسك">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+    <link rel="stylesheet" href="libs/cairo.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="libs/lucide.min.js"></script>
+</head>
+<body>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة تسجيل دخول الموظف
+    ═══════════════════════════════════════════ -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-icon"><i data-lucide="user-circle"></i></div>
+            <h2>من يستخدم البرنامج الآن؟</h2>
+            <form onsubmit="submitEmployeeLogin(event)">
+                <input type="text" class="field login-input" id="employeeNameInput"
+                       placeholder="اسم الموظف" autocomplete="off" required>
+                <button type="submit" class="btn btn-green login-btn">
+                    <i data-lucide="log-in" style="width:18px;height:18px"></i> دخول
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         القائمة الجانبية
+    ═══════════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon"><i data-lucide="plane-takeoff"></i></div>
+            <div>
+                <h1>بركات المناسك</h1>
+                <p>نظام إدارة التذاكر</p>
+            </div>
+        </div>
+        <div class="sidebar-user-card" id="sidebarUserCard" style="display:none">
+            <div class="suc-info">
+                <div class="suc-avatar"><i data-lucide="user"></i></div>
+                <div class="suc-text">
+                    <span class="suc-name" id="sucName"></span>
+                    <span class="suc-badge"><i data-lucide="badge-check" style="width:10px;height:10px"></i> مسجل الدخول</span>
+                </div>
+            </div>
+            <div class="suc-actions">
+                <button class="suc-btn suc-switch" onclick="switchEmployee()" title="تبديل الحساب">
+                    <i data-lucide="refresh-ccw"></i>
+                </button>
+                <button class="suc-btn suc-logout" onclick="logoutEmployee()" title="تسجيل الخروج">
+                    <i data-lucide="log-out"></i>
+                </button>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" data-page="home" onclick="showPage('home')">
+                <i data-lucide="house" class="nav-icon"></i><span>الرئيسية</span>
+            </button>
+            <button class="nav-item" data-page="statement" onclick="showPage('statement')">
+                <i data-lucide="receipt" class="nav-icon"></i><span>كشف الحساب</span>
+            </button>
+            <button class="nav-item" data-page="reports" onclick="showPage('reports')">
+                <i data-lucide="chart-column" class="nav-icon"></i><span>التقارير</span>
+            </button>
+            <button class="nav-item" data-page="expenses" onclick="showPage('expenses')">
+                <i data-lucide="wallet" class="nav-icon"></i><span>المصاريف</span>
+            </button>
+            <button class="nav-item" data-page="clients" onclick="showPage('clients')">
+                <i data-lucide="users" class="nav-icon"></i><span>العملاء</span>
+            </button>
+            <button class="nav-item" data-page="debts" onclick="showPage('debts')">
+                <i data-lucide="hand-coins" class="nav-icon"></i><span>الديون</span>
+            </button>
+            <button class="nav-item" data-page="installments" onclick="showPage('installments')">
+                <i data-lucide="calendar-range" class="nav-icon"></i><span>الأقساط</span>
+            </button>
+            <button class="nav-item" data-page="activity" onclick="showPage('activity')">
+                <i data-lucide="notebook-pen" class="nav-icon"></i><span>سجل النشاط</span>
+            </button>
+            <button class="nav-item" data-page="backup" onclick="showPage('backup')">
+                <i data-lucide="database-backup" class="nav-icon"></i><span>النسخ الاحتياطي</span>
+            </button>
+            <button class="nav-item" data-page="trash" onclick="showPage('trash')">
+                <i data-lucide="trash-2" class="nav-icon"></i><span>سلة المحذوفات</span>
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-install" id="btnInstall" onclick="installPWA()" style="display:none">
+                <i data-lucide="download" style="width:16px;height:16px"></i> تثبيت التطبيق
+            </button>
+            <span>v15.3.0</span>
+        </div>
+    </aside>
+
+    <!-- Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- Mobile Header -->
+    <header class="topbar" id="topbar">
+        <button class="topbar-menu" onclick="toggleSidebar()">☰</button>
+        <span class="topbar-title">管理系统</span>
+        <div class="topbar-spacer"></div>
+        <div class="employee-display" id="topbarEmployee"></div>
+        <button class="btn btn-sm btn-secondary switch-user-btn" id="switchUserBtn" onclick="switchEmployee()" style="display:none">
+            <i data-lucide="repeat" style="width:14px;height:14px"></i> تبديل الموظف
+        </button>
+        <button class="btn btn-sm btn-danger switch-user-btn" id="logoutBtn" onclick="logoutEmployee()" style="display:none">
+            <i data-lucide="log-out" style="width:14px;height:14px"></i> تسجيل الخروج
+        </button>
+    </header>
+
+    <!-- ═══════════════════════════════════════════
+         المحتوى الرئيسي
+    ═══════════════════════════════════════════ -->
+    <main class="main" id="main">
+
+        <!-- ═══════ الصفحة الرئيسية ═══════ -->
+        <section class="page active" id="page-home">
+            <div class="page-head">
+                <div>
+                    <h2>الرئيسية</h2>
+                    <p>نظرة عامة على عمليات الوكالة</p>
+                </div>
+            </div>
+
+            <!-- بطاقة الرصيد الكبيرة -->
+            <div class="hero-card" id="heroCard">
+                <div class="hero-bg"></div>
+                <div class="hero-content">
+                    <span class="hero-label">الرصيد الحالي</span>
+                    <span class="hero-amount" id="dashBalance">0</span>
+                    <span class="hero-unit">دينار عراقي</span>
+                </div>
+            </div>
+
+            <!-- بطاقات الإحصائيات -->
+            <div class="kpi-grid">
+                <div class="kpi kpi-green">
+                    <div class="kpi-icon"><i data-lucide="trending-up"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي التعزيز</span>
+                        <span class="kpi-value" id="dashIncrease">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="trending-down"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي تكلفة التذاكر</span>
+                        <span class="kpi-value" id="dashTicketCost">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-blue">
+                    <div class="kpi-icon"><i data-lucide="banknote"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي المبيعات</span>
+                        <span class="kpi-value" id="dashSales">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-emerald">
+                    <div class="kpi-icon"><i data-lucide="trending-up"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي الأرباح</span>
+                        <span class="kpi-value" id="dashProfit">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="wallet"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي المصاريف</span>
+                        <span class="kpi-value" id="dashTotalExpenses">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-orange">
+                    <div class="kpi-icon"><i data-lucide="plane"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">عدد التذاكر</span>
+                        <span class="kpi-value" id="dashTickets">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-purple">
+                    <div class="kpi-icon"><i data-lucide="wallet-cards"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">عدد عمليات التعزيز</span>
+                        <span class="kpi-value" id="dashIncreases">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-orange">
+                    <div class="kpi-icon"><i data-lucide="clock"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي الديون</span>
+                        <span class="kpi-value" id="dashTotalDebt">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="users"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">العملاء المدينون</span>
+                        <span class="kpi-value" id="dashDebtClients">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-blue">
+                    <div class="kpi-icon"><i data-lucide="user"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">عدد العملاء</span>
+                        <span class="kpi-value" id="dashClientCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- أزرار الإجراءات -->
+            <div class="quick-actions">
+                <button class="qa-btn qa-green" onclick="openIncreaseDialog()">
+                    <span class="qa-icon"><i data-lucide="plus"></i></span>
+                    <span class="qa-text">تعزيز</span>
+                </button>
+                <div class="qa-dropdown" id="cutDropdown">
+                    <button class="qa-btn qa-blue" onclick="toggleCutDropdown(event)">
+                        <span class="qa-icon"><i data-lucide="scissors"></i></span>
+                        <span class="qa-text">قطع</span>
+                    </button>
+                    <div class="qa-menu" id="cutMenu">
+                        <button type="button" class="qa-menu-item" onclick="openService('ticket')">
+                            <i data-lucide="plane"></i><span>قطع تذكرة طيران</span>
+                        </button>
+                        <button type="button" class="qa-menu-item" onclick="openService('visa')">
+                            <i data-lucide="stamp"></i><span>إصدار فيزا</span>
+                        </button>
+                        <button type="button" class="qa-menu-item" onclick="openService('hotel')">
+                            <i data-lucide="hotel"></i><span>حجز فندق</span>
+                        </button>
+                        <button type="button" class="qa-menu-item" onclick="openService('esim')">
+                            <i data-lucide="smartphone"></i><span>شراء شريحة eSIM</span>
+                        </button>
+                    </div>
+                </div>
+                <button class="qa-btn qa-slate" onclick="showPage('statement')">
+                    <span class="qa-icon"><i data-lucide="receipt"></i></span>
+                    <span class="qa-text">كشف الحساب</span>
+                </button>
+                <button class="qa-btn qa-violet" onclick="showPage('reports')">
+                    <span class="qa-icon"><i data-lucide="chart-column"></i></span>
+                    <span class="qa-text">التقارير</span>
+                </button>
+            </div>
+
+            <!-- آخر الحركات -->
+            <div class="panel" id="recentPanel" style="display:none">
+                <div class="panel-head">
+                    <h3>آخر العمليات</h3>
+                </div>
+                <div class="panel-body" id="recentList"></div>
+            </div>
+        </section>
+
+        <!-- ═══════ كشف الحساب ═══════ -->
+        <section class="page" id="page-statement">
+            <div class="page-head">
+                <div>
+                    <h2>كشف الحساب</h2>
+                    <p>جميع العمليات المسجلة</p>
+                </div>
+            </div>
+
+            <div class="panel toolbar">
+                <div class="toolbar-row">
+                    <input type="text" class="field" id="searchText"
+                           placeholder="بحث في الملاحظات أو العميل..." oninput="filterTable()">
+                    <select class="field field-sm" id="filterType" onchange="filterTable()">
+                        <option value="all">الكل</option>
+                        <option value="تعزيز"> تعزيز</option>
+                        <option value="بيع">بيع تذاكر</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" onclick="exportStatementExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                </div>
+            </div>
+
+            <div class="panel table-panel">
+                <div class="table-scroll">
+                    <table class="tbl" id="mainTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>التاريخ</th>
+                                <th>النوع</th>
+                                <th>العميل</th>
+                                <th>الشركة</th>
+                                <th>السعر الأساسي</th>
+                                <th>سعر البيع</th>
+                                <th>الربح</th>
+                                <th>الرصيد</th>
+                                <th>الملاحظات</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+                <div class="empty-msg" id="emptyMsg">
+                    <div class="empty-icon"><i data-lucide="inbox"></i></div>
+                    <p>لا توجد عمليات بعد</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════ التقارير ═══════ -->
+        <section class="page" id="page-reports">
+            <div class="page-head">
+                <div>
+                    <h2>التقارير</h2>
+                    <p>تحليلات وأرباح مفصلة</p>
+                </div>
+            </div>
+
+            <!-- فلاتر التقرير -->
+            <div class="panel toolbar">
+                <div class="toolbar-row">
+                    <div class="tab-group" id="reportTabs">
+                        <button class="tab active" data-mode="monthly" onclick="switchReportMode('monthly')">شهري</button>
+                        <button class="tab" data-mode="daily" onclick="switchReportMode('daily')">يومي</button>
+                        <button class="tab" data-mode="yearly" onclick="switchReportMode('yearly')">سنوي</button>
+                    </div>
+                    <div class="toolbar-spacer"></div>
+                    <select class="field field-sm" id="reportMonth" onchange="generateReport()" style="display:none"></select>
+                    <input type="date" class="field field-sm" id="reportDate" onchange="generateReport()" style="display:none">
+                    <select class="field field-sm" id="reportYear" onchange="generateReport()"></select>
+                    <button class="btn btn-primary btn-sm" onclick="exportReportExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                    <button class="btn btn-secondary btn-sm" onclick="exportReportPrint()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
+                </div>
+            </div>
+
+            <!-- ملخص التقرير -->
+            <div class="kpi-grid kpi-grid-3" id="reportKpis"></div>
+
+            <!-- جدول التقرير -->
+            <div class="panel table-panel">
+                <div class="panel-head"><h3>تفاصيل العمليات</h3></div>
+                <div class="table-scroll">
+                    <table class="tbl">
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>النوع</th>
+                                <th>العميل</th>
+                                <th>السعر الأساسي</th>
+                                <th>سعر البيع</th>
+                                <th>الربح</th>
+                                <th>الملاحظات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+                    <!-- Debt Report -->
+                    <div class="panel" style="margin-top:16px">
+                        <div class="panel-header">
+                            <h3>تقرير الديون</h3>
+                            <div class="toolbar-row" style="gap:8px">
+                                <select class="field field-sm" id="debtFilter" onchange="filterDebtClients()">
+                                    <option value="all">جميع العملاء</option>
+                                    <option value="debtors">العملاء المدينون</option>
+                                    <option value="settled">المسددون</option>
+                                </select>
+                                <button class="btn btn-secondary btn-sm" onclick="exportDebtClientsExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                            </div>
+                        </div>
+                        <div class="kpi-grid" style="margin-bottom:12px">
+                            <div class="kpi kpi-blue"><div class="kpi-body"><span class="kpi-label">عدد العملاء</span><span class="kpi-value" id="debtReportTotalClients">0</span></div></div>
+                            <div class="kpi kpi-blue"><div class="kpi-body"><span class="kpi-label">إجمالي القيمة</span><span class="kpi-value" id="debtReportTotalValue">0 د.ع</span></div></div>
+                            <div class="kpi kpi-green"><div class="kpi-body"><span class="kpi-label">إجمالي المدفوع</span><span class="kpi-value" id="debtReportTotalPaid">0 د.ع</span></div></div>
+                            <div class="kpi kpi-red"><div class="kpi-body"><span class="kpi-label">إجمالي المتبقي</span><span class="kpi-value" id="debtReportTotalRemaining">0 د.ع</span></div></div>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="table">
+                                <thead><tr>
+                                    <th>#</th><th>الاسم</th><th>الهاتف</th><th>عدد الخدمات</th><th>إجمالي القيمة</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>آخر دفعة</th>
+                                </tr></thead>
+                                <tbody id="debtReportBody"></tbody>
+                            </table>
+                            <div class="empty-msg" id="debtReportEmpty">لا توجد بيانات ديون</div>
+                        </div>
+                    </div>
+
+            <!-- رسم بياني -->
+            <div class="panel chart-panel">
+                <div class="panel-head"><h3>الأرباح اليومية</h3></div>
+                <canvas id="profitChart" height="260"></canvas>
+            </div>
+        </section>
+
+        <!-- ═══════ المصاريف ═══════ -->
+        <section class="page" id="page-expenses">
+            <div class="page-head">
+                <div>
+                    <h2><i data-lucide="wallet" style="width:24px;height:24px;vertical-align:middle"></i> المصاريف</h2>
+                    <p>إدارة ومتابعة مصاريف الشركة</p>
+                </div>
+            </div>
+
+            <!-- بطاقات إحصائيات المصاريف -->
+            <div class="kpi-grid">
+                <div class="kpi kpi-green">
+                    <div class="kpi-icon"><i data-lucide="circle-check-big"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">مدفوع هذا الشهر</span>
+                        <span class="kpi-value" id="expMonthPaid">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="clock"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">غير مدفوع هذا الشهر</span>
+                        <span class="kpi-value" id="expMonthUnpaid">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-emerald">
+                    <div class="kpi-icon"><i data-lucide="banknote"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي المدفوع</span>
+                        <span class="kpi-value" id="expTotalPaid">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-orange">
+                    <div class="kpi-icon"><i data-lucide="notebook-pen"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي المستحق</span>
+                        <span class="kpi-value" id="expTotalUnpaid">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-blue">
+                    <div class="kpi-icon"><i data-lucide="refresh-cw"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">مصاريف شهرية</span>
+                        <span class="kpi-value" id="expRecurringCount">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-purple">
+                    <div class="kpi-icon"><i data-lucide="map-pin"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">مصاريف لمرة واحدة</span>
+                        <span class="kpi-value" id="expOneTimeCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- أزرار الإجراءات -->
+            <div class="quick-actions" style="margin-bottom:20px">
+                <button class="qa-btn qa-red" onclick="openExpenseDialog()">
+                    <span class="qa-icon"><i data-lucide="plus"></i></span>
+                    <span class="qa-text">إضافة مصروف</span>
+                </button>
+            </div>
+
+            <!-- شريط البحث -->
+            <div class="panel toolbar">
+                <div class="toolbar-row">
+                    <input type="text" class="field" id="expSearchText"
+                           placeholder="بحث بالاسم أو الوصف أو المبلغ..." oninput="filterExpenses()">
+                    <select class="field field-sm" id="expFilterStatus" onchange="filterExpenses()">
+                        <option value="all">الكل</option>
+                        <option value="paid">تم الدفع</option>
+                        <option value="partial">مدفوع جزئياً</option>
+                        <option value="unpaid">لم يتم الدفع</option>
+                        <option value="recurring">شهري</option>
+                        <option value="onetime">مرة واحدة</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" onclick="exportExpensesExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                    <button class="btn btn-secondary btn-sm" onclick="printExpensesReport()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
+                </div>
+            </div>
+
+            <!-- جدول المصاريف -->
+            <div class="panel table-panel">
+                <div class="table-scroll">
+                    <table class="tbl" id="expenseTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>التاريخ</th>
+                                <th>الاسم</th>
+                                <th>المبلغ</th>
+                                <th>المدفوع</th>
+                                <th>المتبقي</th>
+                                <th>النوع</th>
+                                <th>الحالة</th>
+                                <th>آخر دفعة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expenseBody"></tbody>
+                    </table>
+                </div>
+                <div class="empty-msg" id="expenseEmptyMsg">
+                    <div class="empty-icon"><i data-lucide="inbox"></i></div>
+                    <p>لا توجد مصاريف بعد</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════ تفاصيل المصروف ═══════ -->
+        <section class="page" id="page-expense-detail">
+            <div class="page-head">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                    <button class="btn btn-secondary btn-sm" onclick="showPage('expenses')"><i data-lucide="arrow-right" style="width:16px;height:16px"></i> الرجوع</button>
+                    <div>
+                        <h2 id="detailExpName">—</h2>
+                        <p id="detailExpType">تفاصيل المصروف</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات المصروف -->
+            <div class="kpi-grid">
+                <div class="kpi kpi-blue">
+                    <div class="kpi-icon"><i data-lucide="banknote"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">المبلغ الكلي</span>
+                        <span class="kpi-value" id="detailExpAmount">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-green">
+                    <div class="kpi-icon"><i data-lucide="circle-check-big"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">المبلغ المدفوع</span>
+                        <span class="kpi-value" id="detailExpPaidAmt">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="clock"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">المبلغ المتبقي</span>
+                        <span class="kpi-value" id="detailExpRemainingAmt">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-emerald">
+                    <div class="kpi-icon"><i data-lucide="chart-column"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">حالة الدفع</span>
+                        <span class="kpi-value" id="detailExpPayStatus">—</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-blue">
+                    <div class="kpi-icon"><i data-lucide="calendar"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">تم الدفع</span>
+                        <span class="kpi-value" id="detailExpPaid">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="clock"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">لم يتم الدفع</span>
+                        <span class="kpi-value" id="detailExpUnpaid">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-emerald">
+                    <div class="kpi-icon"><i data-lucide="chart-column"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي المدفوع</span>
+                        <span class="kpi-value" id="detailExpTotalPaid">0 د.ع</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات إضافية -->
+            <div class="panel" style="margin-bottom:20px">
+                <div class="panel-body">
+                    <div class="info-item" style="margin-bottom:8px"><span class="info-label">تاريخ الإنشاء</span><span class="info-value" id="detailExpDate">—</span></div>
+                    <div class="info-item" style="margin-bottom:8px"><span class="info-label">الوصف</span><span class="info-value" id="detailExpDesc">—</span></div>
+                    <div class="info-item"><span class="info-label">الملاحظات</span><span class="info-value" id="detailExpNotes">—</span></div>
+                </div>
+            </div>
+
+            <!-- سجل الدفعات -->
+            <div id="detailExpPaymentsSection">
+                <div class="panel table-panel" style="margin-top:20px">
+                    <div class="panel-head"><h3><i data-lucide="hand-coins" style="width:18px;height:18px;vertical-align:middle"></i> سجل الدفعات الجزئية</h3></div>
+                    <div class="table-scroll">
+                        <table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th>التاريخ</th>
+                                    <th>المبلغ</th>
+                                    <th>ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailExpPaymentsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- سجل الأشهر -->
+            <div id="detailExpRecurringSection">
+                <div class="panel table-panel" style="margin-top:20px">
+                    <div class="panel-head"><h3><i data-lucide="calendar" style="width:18px;height:18px;vertical-align:middle"></i> سجل الأشهر</h3></div>
+                    <div class="table-scroll">
+                        <table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th>الشهر</th>
+                                    <th>الحالة</th>
+                                    <th>تاريخ الدفع</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailExpRecordsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════ العملاء ═══════ -->
+        <section class="page" id="page-clients">
+            <div class="page-head">
+                <div>
+                    <h2><i data-lucide="users" style="width:24px;height:24px;vertical-align:middle"></i> العملاء</h2>
+                    <p>إدارة بيانات العملاء</p>
+                </div>
+            </div>
+
+            <!-- بطاقات إحصائيات العملاء -->
+            <div class="kpi-grid">
+                <div class="kpi kpi-blue">
+                    <div class="kpi-icon"><i data-lucide="users"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">عدد العملاء</span>
+                        <span class="kpi-value" id="clientTotalCount">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-green">
+                    <div class="kpi-icon"><i data-lucide="circle-check-big"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">العملاء النشطين</span>
+                        <span class="kpi-value" id="clientActiveCount">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-orange">
+                    <div class="kpi-icon"><i data-lucide="clock"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">لديهم مبالغ متبقية</span>
+                        <span class="kpi-value" id="clientOwedCount">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="notebook-pen"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي الذمم المدينة</span>
+                        <span class="kpi-value" id="clientReceivables">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- زر إضافة -->
+            <div class="quick-actions" style="margin-bottom:20px">
+                <button class="qa-btn qa-blue" onclick="openClientDialog()">
+                    <span class="qa-icon"><i data-lucide="plus"></i></span>
+                    <span class="qa-text">إضافة عميل</span>
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="exportClientsExcel()" style="margin-top:8px"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+            </div>
+
+            <!-- جدول العملاء -->
+            <div class="panel table-panel">
+                <div class="table-scroll">
+                    <table class="tbl">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>الاسم</th>
+                                <th>الهاتف</th>
+                                <th>عدد الخدمات</th>
+                                <th>إجمالي المدفوع</th>
+                                <th>إجمالي المتبقي</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientBody"></tbody>
+                    </table>
+                </div>
+                <div class="empty-msg" id="clientEmptyMsg">
+                    <div class="empty-icon"><i data-lucide="users"></i></div>
+                    <p>لا يوجد عملاء بعد</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════ تفاصيل العميل ═══════ -->
+        <section class="page" id="page-client-detail">
+            <div class="page-head">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                    <button class="btn btn-secondary btn-sm" onclick="showPage('clients')"><i data-lucide="arrow-right" style="width:16px;height:16px"></i> الرجوع</button>
+                    <div>
+                        <h2 id="detailClientName">—</h2>
+                        <p id="detailClientSub">تفاصيل حساب العميل</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- معلومات العميل -->
+            <div class="panel" style="margin-bottom:20px">
+                <div class="panel-body client-info-grid" id="clientInfoCard"></div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="kpi-grid" id="clientDetailKpis"></div>
+
+            <!-- أزرار الإضافة -->
+            <div class="quick-actions" style="margin-bottom:20px">
+                <button class="qa-btn qa-blue" onclick="openServiceDialog()">
+                    <span class="qa-icon"><i data-lucide="plus"></i></span>
+                    <span class="qa-text">إضافة خدمة</span>
+                </button>
+            </div>
+
+            <!-- جدول التذاكر -->
+            <div class="panel table-panel">
+                <div class="panel-head"><h3><i data-lucide="plane" style="width:18px;height:18px;vertical-align:middle"></i> التذاكر</h3></div>
+                <div class="table-scroll">
+                    <table class="tbl">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>التاريخ</th>
+                                <th>السعر الأساسي</th>
+                                <th>سعر البيع</th>
+                                <th>الربح</th>
+                                <th>الحالة</th>
+                                <th>طريقة الدفع</th>
+                                <th>المدفوع</th>
+                                <th>المتبقي</th>
+                                <th>الملاحظات</th>
+                                <th>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientTicketBody"></tbody>
+                    </table>
+                </div>
+                <div class="empty-msg" id="clientTicketEmptyMsg">
+                    <div class="empty-icon"><i data-lucide="plane"></i></div>
+                    <p>لا توجد تذاكر مسجلة لهذا العميل</p>
+                </div>
+            </div>
+
+            <!-- جدول الخدمات -->
+            <div class="panel table-panel">
+                <div class="panel-head"><h3>الخدمات</h3></div>
+                <div class="table-scroll">
+                    <table class="tbl">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>التاريخ</th>
+                                <th>الوصف</th>
+                                <th>المبلغ</th>
+                                <th>طريقة الدفع</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="serviceBody"></tbody>
+                    </table>
+                </div>
+                <div class="empty-msg" id="serviceEmptyMsg">
+                    <div class="empty-icon"><i data-lucide="inbox"></i></div>
+                    <p>لا توجد خدمات بعد</p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ═══════ النسخ الاحتياطي ═══════ -->
+        <section class="page" id="page-backup">
+            <div class="page-head">
+                <div>
+                    <h2>النسخ الاحتياطي</h2>
+                    <p>تصدير واستيراد جميع بيانات النظام</p>
+                </div>
+            </div>
+            <div class="backup-grid">
+                <div class="panel backup-box">
+                    <div class="backup-emoji"><i data-lucide="upload"></i></div>
+                    <h3>تصدير النسخة الاحتياطية</h3>
+                    <p>حفظ جميع البيانات في ملف JSON واحد:<br>التذاكر، العملاء، المصاريف، الديون، الإعدادات، سلة المحذوفات</p>
+                    <button class="btn btn-primary" onclick="exportJSON()">تصدير نسخة احتياطية كاملة</button>
+                </div>
+                <div class="panel backup-box">
+                    <div class="backup-emoji"><i data-lucide="download"></i></div>
+                    <h3>استيراد البيانات</h3>
+                    <p>استعادة جميع البيانات من ملف نسخة احتياطية.<br>يتم إنشاء نسخة احتياطية تلقائية قبل الاستيراد</p>
+                    <input type="file" id="importInput" accept=".json" hidden onchange="importJSON(event)">
+                    <button class="btn btn-amber" onclick="document.getElementById('importInput').click()">استيراد نسخة احتياطية</button>
+                </div>
+                <div class="panel backup-box">
+                    <div class="backup-emoji"><i data-lucide="triangle-alert"></i></div>
+                    <h3>حذف جميع البيانات</h3>
+                    <p>حذف نهائي لجميع بيانات النظام<br>التذاكر، العملاء، المصاريف، الديون، الإعدادات</p>
+                    <button class="btn btn-danger" onclick="deleteAll()">حذف جميع البيانات</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════ إدارة الديون ═══════ -->
+        <section class="page" id="page-debts">
+            <div class="page-head">
+                <div>
+                    <h2><i data-lucide="hand-coins" style="width:24px;height:24px;vertical-align:middle"></i> إدارة الديون</h2>
+                    <p>ديون العملاء — التذاكر والديون اليدوية</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="openManualDebtDialog()">+ إضافة دين</button>
+                    <button class="btn btn-green" onclick="exportManualDebtsExcel()"><i data-lucide="download" style="width:16px;height:16px"></i> تصدير</button>
+                    <button class="btn btn-secondary" onclick="printManualDebts()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
+                </div>
+            </div>
+
+            <div class="debt-kpi-grid">
+                <div class="kpi kpi-orange">
+                    <div class="kpi-icon"><i data-lucide="banknote"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي الديون</span>
+                        <span class="kpi-value" id="manualDebtTotalStat">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-green">
+                    <div class="kpi-icon"><i data-lucide="circle-check-big"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">المبلغ المحصل</span>
+                        <span class="kpi-value" id="manualDebtPaidStat">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="clock"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">المتبقي</span>
+                        <span class="kpi-value" id="manualDebtRemainingStat">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-blue">
+                    <div class="kpi-icon"><i data-lucide="users"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">العملاء المدينون</span>
+                        <span class="kpi-value" id="manualDebtCountStat">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="debt-toolbar">
+                    <input type="text" class="field field-search" id="manualDebtSearch" placeholder="بحث باسم العميل أو رقم الهاتف أو السبب..." oninput="renderManualDebts()">
+                    <select class="field field-filter" id="manualDebtFilter" onchange="renderManualDebts()">
+                        <option value="all">الكل</option>
+                        <option value="paid">المدفوعة</option>
+                        <option value="unpaid">غير المدفوعة</option>
+                    </select>
+                    <div class="toolbar-spacer"></div>
+                    <span class="debt-count" id="manualDebtResults"></span>
+                </div>
+            </div>
+
+            <div class="panel" id="manualDebtEmpty" style="text-align:center;padding:40px;color:var(--muted)">
+                <div style="margin-bottom:12px"><i data-lucide="hand-coins" style="width:48px;height:48px"></i></div>
+                <p style="font-size:16px;font-weight:600">لا توجد ديون حالياً</p>
+                <p style="font-size:13px">أضف ديناً يدوياً أو يتم إضافة ديون التذاكر تلقائياً</p>
+            </div>
+
+            <div class="panel table-wrap" style="display:none" id="manualDebtTableWrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="debt-col-name">العميل</th>
+                            <th class="debt-col-amount">إجمالي المبلغ</th>
+                            <th class="debt-col-amount">المدفوع</th>
+                            <th class="debt-col-amount">المتبقي</th>
+                            <th class="debt-col-date">تاريخ الإضافة</th>
+                            <th class="debt-col-status">الحالة</th>
+                            <th class="debt-col-actions">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="manualDebtBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ═══════ الأقساط ═══════ -->
+        <section class="page" id="page-installments">
+            <div class="page-head">
+                <div>
+                    <h2><i data-lucide="calendar-range" style="width:24px;height:24px;vertical-align:middle"></i> الأقساط</h2>
+                    <p>إدارة عقود الأقساط وجدول الدفعات</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="openInstallmentDialog()">+ إضافة قسط</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('instCSVInput').click()"><i data-lucide="upload" style="width:16px;height:16px"></i> استيراد CSV</button>
+                    <input type="file" id="instCSVInput" accept=".csv" style="display:none" onchange="importInstallmentCSV(this.files[0]); this.value=''">
+                    <button class="btn btn-green" onclick="exportInstallmentsExcel()"><i data-lucide="download" style="width:16px;height:16px"></i> تصدير</button>
+                    <button class="btn btn-secondary" onclick="printInstallments()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
+                </div>
+            </div>
+
+            <div class="debt-kpi-grid">
+                <div class="kpi kpi-blue-light">
+                    <div class="kpi-icon"><i data-lucide="users"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">عدد العملاء</span>
+                        <span class="kpi-value" id="instCountStat">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-orange">
+                    <div class="kpi-icon"><i data-lucide="file-text"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">عدد العقود</span>
+                        <span class="kpi-value" id="instContractStat">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-purple">
+                    <div class="kpi-icon"><i data-lucide="banknote"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي قيمة الأقساط</span>
+                        <span class="kpi-value" id="instTotalStat">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-green">
+                    <div class="kpi-icon"><i data-lucide="circle-check-big"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي المدفوع</span>
+                        <span class="kpi-value" id="instPaidStat">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red">
+                    <div class="kpi-icon"><i data-lucide="clock"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">إجمالي المتبقي</span>
+                        <span class="kpi-value" id="instRemainingStat">0 د.ع</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-red-light">
+                    <div class="kpi-icon"><i data-lucide="alert-triangle"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">أقساط متأخرة</span>
+                        <span class="kpi-value" id="instOverdueStat">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-teal">
+                    <div class="kpi-icon"><i data-lucide="check-circle-2"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">أقساط مكتملة</span>
+                        <span class="kpi-value" id="instCompletedStat">0</span>
+                    </div>
+                </div>
+                <div class="kpi kpi-emerald">
+                    <div class="kpi-icon"><i data-lucide="loader"></i></div>
+                    <div class="kpi-body">
+                        <span class="kpi-label">أقساط جارية</span>
+                        <span class="kpi-value" id="instActiveStat">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="debt-toolbar">
+                    <input type="text" class="field field-search" id="instSearch" placeholder="بحث باسم العميل أو رقم الهاتف أو الوصف..." oninput="renderInstallments()">
+                    <select class="field field-filter" id="instFilter" onchange="renderInstallments()">
+                        <option value="all">الكل</option>
+                        <option value="active">جاري</option>
+                        <option value="completed">مكتمل</option>
+                        <option value="overdue">متأخر</option>
+                        <option value="partial">مدفوع جزئياً</option>
+                        <option value="unpaid">غير مدفوع</option>
+                    </select>
+                    <div class="toolbar-spacer"></div>
+                    <span class="debt-count" id="instResults"></span>
+                </div>
+            </div>
+
+            <div class="panel" id="instEmpty" style="text-align:center;padding:40px;color:var(--muted)">
+                <div style="margin-bottom:12px"><i data-lucide="calendar-range" style="width:48px;height:48px"></i></div>
+                <p style="font-size:16px;font-weight:600">لا توجد عقود أقساط حالياً</p>
+                <p style="font-size:13px">أضف عقد قسط جديد للبدء في إدارة الأقساط</p>
+            </div>
+
+            <div class="panel table-wrap" style="display:none" id="instTableWrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="debt-col-name">العميل</th>
+                            <th class="debt-col-amount">المبلغ الكلي</th>
+                            <th class="debt-col-amount">المدفوع</th>
+                            <th class="debt-col-amount">المتبقي</th>
+                            <th>عدد الأقساط</th>
+                            <th>الحالة</th>
+                            <th>تاريخ البداية</th>
+                            <th class="debt-col-actions">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="instBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ═══════ سلة المحذوفات ═══════ -->
+        <section class="page" id="page-trash">
+            <div class="page-head">
+                <div>
+                    <h2><i data-lucide="trash-2" style="width:24px;height:24px;vertical-align:middle"></i> سلة المحذوفات</h2>
+                    <p>السجلات المحذوفة — يمكن استرجاعها خلال 24 ساعة</p>
+                </div>
+                <div>
+                    <button class="btn btn-danger" onclick="cleanExpiredTrash()">تنظيف المنتهية</button>
+                </div>
+            </div>
+
+            <div class="panel" id="trashEmpty" style="text-align:center;padding:40px;color:var(--muted)">
+                <div style="margin-bottom:12px"><i data-lucide="trash-2" style="width:48px;height:48px"></i></div>
+                <p style="font-size:16px;font-weight:600">سلة المحذوفات فارغة</p>
+                <p style="font-size:13px">السجلات المحذوفة ستظهر هنا</p>
+            </div>
+
+            <div class="panel table-wrap" style="display:none" id="trashTableWrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>النوع</th>
+                            <th>الاسم</th>
+                            <th>تاريخ الحذف</th>
+                            <th>الوقت المتبقي</th>
+                            <th>إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trashBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ═══════ سجل النشاط ═══════ -->
+        <section class="page" id="page-activity">
+            <div class="page-head">
+                <div>
+                    <h2><i data-lucide="notebook-pen" style="width:24px;height:24px;vertical-align:middle"></i> سجل النشاط</h2>
+                    <p>جميع العمليات المسجّلة بالموظف والوقت</p>
+                </div>
+                <div>
+                    <button class="btn btn-secondary" onclick="exportActivityExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                    <button class="btn btn-secondary" onclick="printActivityLog()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
+                </div>
+            </div>
+
+            <!-- فلترة -->
+            <div class="toolbar">
+                <input type="text" class="field" id="activitySearch" placeholder="بحث بالموظف أو العملية..." oninput="renderActivityLog()">
+                <span class="toolbar-info" id="activityResults">0 سجل</span>
+            </div>
+
+            <div class="panel" id="activityEmpty" style="text-align:center;padding:40px;color:var(--muted)">
+                <div style="margin-bottom:12px"><i data-lucide="notebook-pen" style="width:48px;height:48px"></i></div>
+                <p style="font-size:16px;font-weight:600">سجل النشاط فارغ</p>
+                <p style="font-size:13px">ستظهر جميع العمليات هنا تلقائياً</p>
+            </div>
+
+            <div class="panel table-wrap" style="display:none" id="activityTableWrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>التاريخ</th>
+                            <th>الوقت</th>
+                            <th>الموظف</th>
+                            <th>العملية</th>
+                            <th>الوصف</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activityBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة إضافة تعزيز
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="increaseModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box">
+            <div class="modal-header modal-header-green">
+                <h3><i data-lucide="plus" style="width:18px;height:18px;vertical-align:middle"></i> تعزيز رصيد</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="saveIncrease(event)">
+                <div class="field-group">
+                    <label>التاريخ</label>
+                    <input type="date" class="field" id="incDate" required>
+                </div>
+                <div class="field-group">
+                    <label>المبلغ (دينار عراقي)</label>
+                    <input type="number" class="field" id="incAmount" min="1" step="1"
+                           placeholder="0" required>
+                </div>
+                <div class="field-group">
+                    <label>الملاحظات</label>
+                    <input type="text" class="field" id="incNotes" placeholder="اختياري...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-green">حفظ التعزيز</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة بيع تذكرة
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="ticketModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box modal-lg">
+            <div class="modal-header modal-header-blue">
+                <h3><i data-lucide="plane" style="width:18px;height:18px;vertical-align:middle"></i> بيع تذكرة</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="saveTicket(event)">
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>التاريخ</label>
+                        <input type="date" class="field" id="tktDate" required>
+                    </div>
+                    <div class="field-group">
+                        <label>اسم العميل</label>
+                        <input type="text" class="field" id="tktCustomer" placeholder="سيتم تعبئته تلقائياً">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>العميل (اختياري — ربط بملف العميل)</label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <select class="field" id="tktClientSelect" style="flex:1" onchange="onTicketClientChange()">
+                            <option value="">— بدون عميل —</option>
+                        </select>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openNewCustomerFromTicket()" style="white-space:nowrap;flex-shrink:0">+ عميل جديد</button>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>شركة الطيران</label>
+                    <input type="text" class="field" id="tktAirline" placeholder="اختياري">
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>السعر الأساسي <small>تكلفة الشراء</small></label>
+                        <input type="number" class="field" id="tktBase" min="1" step="1"
+                               placeholder="0" oninput="liveCalc()" required>
+                    </div>
+                    <div class="field-group">
+                        <label>سعر البيع <small>مبلغ العميل</small></label>
+                        <input type="number" class="field" id="tktSale" min="1" step="1"
+                               placeholder="0" oninput="liveCalc()" required>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>طريقة دفع العميل</label>
+                    <select class="field" id="tktPaymentMethod" onchange="toggleDebtFields()">
+                        <option value="cash">نقداً</option>
+                        <option value="debt">دين</option>
+                    </select>
+                </div>
+                <div id="tktDebtFields" style="display:none">
+                    <div class="field-row">
+                        <div class="field-group">
+                            <label>المبلغ المدفوع (دينار عراقي)</label>
+                            <input type="number" class="field" id="tktAmountPaid" min="0" step="1" placeholder="0" oninput="calcDebtRemaining()">
+                        </div>
+                        <div class="field-group">
+                            <label>المبلغ المتبقي</label>
+                            <input type="number" class="field" id="tktRemaining" readonly style="background:#f1f5f9">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- حساب مباشر -->
+                <div class="live-calc" id="liveCalcBox">
+                    <div class="lc-item">
+                        <span class="lc-label">الربح</span>
+                        <span class="lc-value" id="liveProfit">0</span>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>الملاحظات</label>
+                    <input type="text" class="field" id="tktNotes" placeholder="رحلة، وجهة...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-blue">حفظ البيع</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة خدمات (فيزا / فندق / eSIM)
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="serviceModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box modal-lg">
+            <div class="modal-header modal-header-green" id="svcHeader">
+                <h3 id="svcTitle"><i data-lucide="stamp" style="width:18px;height:18px;vertical-align:middle"></i> إصدار فيزا</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="saveService(event)">
+                <input type="hidden" id="svcType">
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>التاريخ</label>
+                        <input type="date" class="field" id="svcDate" required>
+                    </div>
+                    <div class="field-group">
+                        <label>اسم العميل</label>
+                        <input type="text" class="field" id="svcCustomer" placeholder="اختياري">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label id="svcProviderLabel">مزود الخدمة</label>
+                    <input type="text" class="field" id="svcProvider" placeholder="اختياري">
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>السعر الأساسي <small>تكلفة الشراء</small></label>
+                        <input type="number" class="field" id="svcBase" min="1" step="1"
+                               placeholder="0" required>
+                    </div>
+                    <div class="field-group">
+                        <label>سعر البيع <small>مبلغ العميل — يترك فارغاً</small></label>
+                        <input type="number" class="field" id="svcSale" min="0" step="1"
+                               placeholder="0">
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>طريقة دفع العميل</label>
+                    <select class="field" id="svcPaymentMethod" onchange="toggleSvcDebtFields()">
+                        <option value="cash">نقداً</option>
+                        <option value="debt">دين</option>
+                    </select>
+                </div>
+                <div id="svcDebtFields" style="display:none">
+                    <div class="field-row">
+                        <div class="field-group">
+                            <label>المبلغ المدفوع (دينار عراقي)</label>
+                            <input type="number" class="field" id="svcAmountPaid" min="0" step="1" placeholder="0" oninput="calcSvcDebtRemaining()">
+                        </div>
+                        <div class="field-group">
+                            <label>المبلغ المتبقي</label>
+                            <input type="number" class="field" id="svcRemaining" readonly style="background:#f1f5f9">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>الملاحظات</label>
+                    <input type="text" class="field" id="svcNotes" placeholder="تفاصيل الخدمة">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-blue" id="svcSaveBtn">حفظ العملية</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة تعديل
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="editModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box modal-lg">
+            <div class="modal-header">
+                <h3 id="editTitle">تعديل العملية</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" id="editForm" onsubmit="submitEdit(event)">
+                <div id="editFields"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ التعديل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة إضافة مصروف
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="expenseModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box">
+            <div class="modal-header modal-header-red">
+                <h3><i data-lucide="wallet" style="width:18px;height:18px;vertical-align:middle"></i> إضافة مصروف</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="saveExpense(event)">
+                <input type="hidden" id="expEditId">
+                <div class="field-group">
+                    <label>اسم المصروف</label>
+                    <input type="text" class="field" id="expName" list="expCategoryList" required placeholder="اكتب أو اختر من القائمة...">
+                    <datalist id="expCategoryList"></datalist>
+                </div>
+                <div class="field-group">
+                    <label>التاريخ</label>
+                    <input type="date" class="field" id="expDate" required>
+                </div>
+                <div class="field-group">
+                    <label>المبلغ (دينار عراقي)</label>
+                    <input type="number" class="field" id="expAmount" min="1" step="1" placeholder="0" required oninput="calcExpRemaining()">
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>المبلغ المدفوع</label>
+                        <input type="number" class="field" id="expPaid" min="0" step="1" value="0" placeholder="0" oninput="calcExpRemaining()">
+                    </div>
+                    <div class="field-group">
+                        <label>المتبقي</label>
+                        <input type="number" class="field" id="expRemaining" min="0" step="1" readonly style="background:var(--bg-2);opacity:0.7">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="expIsRecurring" onchange="toggleRecurringFields()">
+                        مصروف شهري متكرر
+                    </label>
+                </div>
+                <div id="recurringFields" style="display:none">
+                    <div class="field-row">
+                        <div class="field-group">
+                            <label>يوم الاستحقاق من الشهر</label>
+                            <input type="number" class="field" id="expDueDay" min="1" max="31" placeholder="مثال: 5">
+                        </div>
+                        <div class="field-group">
+                            <label>حالة الدفع</label>
+                            <select class="field" id="expPaymentStatus">
+                                <option value="paid">تم الدفع</option>
+                                <option value="unpaid">لم يتم الدفع</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="field-group" id="oneTimeStatusField">
+                    <label>حالة الدفع</label>
+                    <select class="field" id="expPaymentStatusOneTime">
+                        <option value="paid">تم الدفع</option>
+                        <option value="unpaid">لم يتم الدفع</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label>الوصف</label>
+                    <input type="text" class="field" id="expDesc" placeholder="وصف المصروف...">
+                </div>
+                <div class="field-group">
+                    <label>الملاحظات</label>
+                    <input type="text" class="field" id="expNotes" placeholder="اختياري...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">حفظ المصروف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة تعديل مصروف
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="expenseEditModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>تعديل المصروف</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="submitExpenseEdit(event)">
+                <input type="hidden" id="expEditIdEdit">
+                <div class="field-group">
+                    <label>اسم المصروف</label>
+                    <input type="text" class="field" id="expEditName" list="expEditCategoryList" required>
+                    <datalist id="expEditCategoryList"></datalist>
+                </div>
+                <div class="field-group">
+                    <label>المبلغ (دينار عراقي)</label>
+                    <input type="number" class="field" id="expEditAmount" min="1" step="1" required oninput="calcExpEditRemaining()">
+                </div>
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>المبلغ المدفوع</label>
+                        <input type="number" class="field" id="expEditPaid" min="0" step="1" value="0" oninput="calcExpEditRemaining()">
+                    </div>
+                    <div class="field-group">
+                        <label>المتبقي</label>
+                        <input type="number" class="field" id="expEditRemaining" min="0" step="1" readonly style="background:var(--bg-2);opacity:0.7">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="expEditIsRecurring" onchange="toggleEditRecurringFields()">
+                        مصروف شهري متكرر
+                    </label>
+                </div>
+                <div id="editRecurringFields" style="display:none">
+                    <div class="field-row">
+                        <div class="field-group">
+                            <label>يوم الاستحقاق من الشهر</label>
+                            <input type="number" class="field" id="expEditDueDay" min="1" max="31">
+                        </div>
+                        <div class="field-group">
+                            <label>حالة الدفع</label>
+                            <select class="field" id="expEditPaymentStatus">
+                                <option value="paid">تم الدفع</option>
+                                <option value="unpaid">لم يتم الدفع</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>الوصف</label>
+                    <input type="text" class="field" id="expEditDesc">
+                </div>
+                <div class="field-group">
+                    <label>الملاحظات</label>
+                    <input type="text" class="field" id="expEditNotes">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ التعديل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة تسجيل دفعة مصروف جزئية
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="expPayModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3><i data-lucide="hand-coins" style="width:18px;height:18px;vertical-align:middle"></i> تسجيل دفعة مصروف جزئية</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="submitExpensePayment(event)">
+                <input type="hidden" id="expPayId">
+                <div class="info-item" style="margin-bottom:12px">
+                    <span class="info-label">المتبقي</span>
+                    <span class="info-value" id="expPayRemaining" style="font-size:1.1em;font-weight:700;color:var(--red)">—</span>
+                </div>
+                <div class="field-group">
+                    <label>التاريخ</label>
+                    <input type="date" class="field" id="expPayDate" required>
+                </div>
+                <div class="field-group">
+                    <label>المبلغ (دينار عراقي)</label>
+                    <input type="number" class="field" id="expPayAmount" min="1" step="1" required>
+                </div>
+                <div class="field-group">
+                    <label>ملاحظات</label>
+                    <input type="text" class="field" id="expPayNotes" placeholder="اختياري">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-green">تسجيل الدفعة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة إضافة/تعديل عميل
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="clientModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box">
+            <div class="modal-header modal-header-blue">
+                <h3 id="clientModalTitle">إضافة عميل</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="submitClient(event)">
+                <input type="hidden" id="clientEditId">
+                <div class="field-group">
+                    <label>اسم العميل</label>
+                    <input type="text" class="field" id="clientName" required placeholder="الاسم الكامل">
+                </div>
+                <div class="field-group">
+                    <label>رقم الهاتف</label>
+                    <input type="text" class="field" id="clientPhone" placeholder="07XX XXX XXXX">
+                </div>
+                <div class="field-group">
+                    <label>العنوان</label>
+                    <input type="text" class="field" id="clientAddress" placeholder="المدينة / المنطقة">
+                </div>
+                <div class="field-group">
+                    <label>ملاحظات</label>
+                    <input type="text" class="field" id="clientNotes" placeholder="اختياري...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ العميل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة إضافة/تعديل خدمة
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="serviceModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box">
+            <div class="modal-header modal-header-blue">
+                <h3 id="serviceModalTitle">إضافة خدمة</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="submitService(event)">
+                <input type="hidden" id="serviceEditId">
+                <div class="field-group">
+                    <label>التاريخ</label>
+                    <input type="date" class="field" id="serviceDate" required>
+                </div>
+                <div class="field-group">
+                    <label>وصف الخدمة</label>
+                    <input type="text" class="field" id="serviceDesc" required placeholder="نوع الخدمة...">
+                </div>
+                <div class="field-group">
+                    <label>المبلغ (دينار عراقي)</label>
+                    <input type="number" class="field" id="serviceAmount" min="1" step="1" placeholder="0" required>
+                </div>
+                <div class="field-group">
+                    <label>طريقة الدفع</label>
+                    <select class="field" id="servicePaymentMethod">
+                        <option value="cash">نقداً</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-blue">حفظ الخدمة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-wrap" id="toastWrap"></div>
+
+    <!-- Debt Payment Modal -->
+    <div class="modal" id="debtPayModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box modal-sm">
+            <div class="modal-header modal-header-blue">
+                <h3><i data-lucide="hand-coins" style="width:18px;height:18px;vertical-align:middle"></i> تسجيل دفعة</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="submitDebtPayment(event)">
+                <input type="hidden" id="debtPayTxId">
+                <div class="info-item" style="margin-bottom:12px">
+                    <span class="info-label">المتبقي</span>
+                    <span class="info-value" id="debtPayRemaining" style="font-weight:800;color:var(--red)">0 د.ع</span>
+                </div>
+                <div class="field-group">
+                    <label>مبلغ الدفعة (دينار عراقي)</label>
+                    <input type="number" class="field" id="debtPayAmount" min="1" step="1" required placeholder="0">
+                </div>
+                <div class="field-group">
+                    <label>التاريخ</label>
+                    <input type="date" class="field" id="debtPayDate" required>
+                </div>
+                <div class="field-group">
+                    <label>ملاحظات</label>
+                    <input type="text" class="field" id="debtPayNotes" placeholder="اختياري...">
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" onclick="closeAllModals()">إلغاء</button>
+                    <button class="btn btn-blue" type="submit">حفظ الدفعة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة إضافة/تعديل دين يدوي
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="manualDebtModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box" style="max-width:600px">
+            <div class="modal-header modal-header-orange">
+                <h3 id="manualDebtModalTitle">إضافة دين جديد</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="saveManualDebt(event)">
+                <input type="hidden" id="manualDebtEditId">
+                <div class="field-group">
+                    <label>اسم العميل *</label>
+                    <input type="text" class="field" id="manualDebtName" required placeholder="اسم العميل">
+                </div>
+                <div class="field-group">
+                    <label>رقم الهاتف</label>
+                    <input type="text" class="field" id="manualDebtPhone" placeholder="اختياري">
+                </div>
+                <div class="field-group">
+                    <label>التاريخ *</label>
+                    <input type="date" class="field" id="manualDebtDate" required>
+                </div>
+                <div style="display:flex;gap:12px">
+                    <div class="field-group" style="flex:1">
+                        <label>المبلغ الكلي (دينار عراقي) *</label>
+                        <input type="number" class="field" id="manualDebtTotal" min="1" step="1" required placeholder="0" oninput="calcManualDebtRemaining()">
+                    </div>
+                    <div class="field-group" style="flex:1">
+                        <label>المبلغ المدفوع</label>
+                        <input type="number" class="field" id="manualDebtPaid" min="0" step="1" value="0" placeholder="0" oninput="calcManualDebtRemaining()">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>المبلغ المتبقي</label>
+                    <input type="number" class="field" id="manualDebtRemaining" readonly style="background:#f1f5f9">
+                </div>
+                <div class="field-group">
+                    <label>سبب الدين</label>
+                    <input type="text" class="field" id="manualDebtReason" placeholder="مثال: دين قديم، مصروفات متنوعة...">
+                </div>
+                <div class="field-group">
+                    <label>ملاحظات</label>
+                    <input type="text" class="field" id="manualDebtNotes" placeholder="اختياري...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نافذة تسجيل دفعة دين يدوي
+    ═══════════════════════════════════════════ -->
+    <div class="modal" id="manualDebtPayModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box modal-sm">
+            <div class="modal-header modal-header-blue">
+                <h3><i data-lucide="banknote" style="width:18px;height:18px;vertical-align:middle"></i> تسجيل دفعة</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="submitManualDebtPayment(event)">
+                <input type="hidden" id="manualDebtPayId">
+                <div class="info-item" style="margin-bottom:12px">
+                    <span class="info-label">المتبقي</span>
+                    <span class="info-value" id="manualDebtPayRemaining" style="font-weight:800;color:var(--red)">0 د.ع</span>
+                </div>
+                <div class="field-group">
+                    <label>مبلغ الدفعة (دينار عراقي) *</label>
+                    <input type="number" class="field" id="manualDebtPayAmount" min="1" step="1" required placeholder="0">
+                </div>
+                <div class="field-group">
+                    <label>التاريخ</label>
+                    <input type="date" class="field" id="manualDebtPayDate" required>
+                </div>
+                <div class="field-group">
+                    <label>ملاحظات</label>
+                    <input type="text" class="field" id="manualDebtPayNotes" placeholder="اختياري...">
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" onclick="closeAllModals()">إلغاء</button>
+                    <button class="btn btn-green" type="submit"><i data-lucide="banknote" style="width:16px;height:16px"></i> تسجيل الدفعة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة تفاصيل العميل / جدول الأقساط -->
+    <div class="modal" id="debtDetailModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box" style="max-width:900px;max-height:90vh;overflow-y:auto">
+            <div class="modal-header modal-header-orange">
+                <h3 id="debtDetailTitle">تفاصيل العميل</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <div class="modal-body" id="debtDetailBody"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         نوافذ نظام الأقساط
+    ═══════════════════════════════════════════ -->
+
+    <!-- نافذة إضافة/تعديل قسط -->
+    <div class="modal" id="installmentModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box" style="max-width:700px">
+            <div class="modal-header modal-header-orange">
+                <h3 id="instModalTitle">إضافة قسط جديد</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="saveInstallment(event)">
+                <input type="hidden" id="instEditId">
+                <div class="field-group">
+                    <label>اسم العميل *</label>
+                    <input type="text" class="field" id="instName" required placeholder="اسم العميل">
+                </div>
+                <div class="field-group">
+                    <label>رقم الهاتف</label>
+                    <input type="text" class="field" id="instPhone" placeholder="اختياري">
+                </div>
+                <div class="field-group">
+                    <label>وصف القسط</label>
+                    <input type="text" class="field" id="instDescription" placeholder="مثال: تذكرة طيران، رسوم دراسية...">
+                </div>
+                <div style="display:flex;gap:12px">
+                    <div class="field-group" style="flex:1">
+                        <label>المبلغ الكلي (دينار عراقي) *</label>
+                        <input type="number" class="field" id="instTotal" min="1" step="1" required placeholder="0" oninput="calcInstallmentPreview()">
+                    </div>
+                    <div class="field-group" style="flex:1">
+                        <label>الدفعة المقدمة</label>
+                        <input type="number" class="field" id="instAdvance" min="0" step="1" value="0" placeholder="0" oninput="calcInstallmentPreview()">
+                    </div>
+                </div>
+                <div style="display:flex;gap:12px">
+                    <div class="field-group" style="flex:1">
+                        <label>عدد الأقساط *</label>
+                        <input type="number" class="field" id="instCount" min="1" step="1" value="1" placeholder="1" oninput="calcInstallmentPreview()">
+                    </div>
+                    <div class="field-group" style="flex:1">
+                        <label>قيمة القسط</label>
+                        <input type="text" class="field" id="instValueDisplay" readonly style="background:#f1f5f9" placeholder="يُحسب تلقائياً">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>تاريخ بداية الأقساط *</label>
+                    <input type="date" class="field" id="instStartDate" required>
+                </div>
+                <div class="field-group">
+                    <label>فترة السداد</label>
+                    <select class="field" id="instPeriod">
+                        <option value="weekly">أسبوعي</option>
+                        <option value="biweekly">كل أسبوعين</option>
+                        <option value="monthly" selected>شهري</option>
+                        <option value="bimonthly">كل شهرين</option>
+                        <option value="quarterly">كل ثلاثة أشهر</option>
+                        <option value="custom">مخصص</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label>ملاحظات</label>
+                    <input type="text" class="field" id="instNotes" placeholder="اختياري...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة تسجيل دفعة قسط -->
+    <div class="modal" id="instPayModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box modal-sm">
+            <div class="modal-header modal-header-blue">
+                <h3><i data-lucide="banknote" style="width:18px;height:18px;vertical-align:middle"></i> تسجيل دفعة</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <form class="modal-body" onsubmit="submitInstallmentPayment(event)">
+                <input type="hidden" id="instPayContractId">
+                <input type="hidden" id="instPayIdx" value="-1">
+                <div class="info-item" style="margin-bottom:12px">
+                    <span class="info-label">إجمالي العقد</span>
+                    <span class="info-value" id="instPayTotal" style="font-weight:800;color:#7C3AED">0 د.ع</span>
+                </div>
+                <div class="info-item" style="margin-bottom:12px">
+                    <span class="info-label">المتبقي من إجمالي الأقساط</span>
+                    <span class="info-value" id="instPayRemaining" style="font-weight:800;color:var(--red)">0 د.ع</span>
+                </div>
+                <div class="field-group">
+                    <label>مبلغ الدفعة (دينار عراقي) *</label>
+                    <input type="number" class="field" id="instPayValue" min="1" step="1" required placeholder="أدخل المبلغ">
+                </div>
+                <div class="field-group">
+                    <label>تاريخ الدفع</label>
+                    <input type="date" class="field" id="instPayDate" required>
+                </div>
+                <div class="field-group">
+                    <label>الموظف</label>
+                    <input type="text" class="field" id="instPayEmployee" placeholder="اسم الموظف">
+                </div>
+                <div class="field-group">
+                    <label>ملاحظات</label>
+                    <input type="text" class="field" id="instPayNotes" placeholder="اختياري...">
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" onclick="closeAllModals()">إلغاء</button>
+                    <button class="btn btn-green" type="submit"><i data-lucide="banknote" style="width:16px;height:16px"></i> تسجيل الدفعة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة تفاصيل القسط -->
+    <div class="modal" id="instDetailModal">
+        <div class="modal-backdrop" onclick="closeAllModals()"></div>
+        <div class="modal-box" style="max-width:900px;max-height:90vh;overflow-y:auto">
+            <div class="modal-header modal-header-orange">
+                <h3 id="instDetailTitle">تفاصيل القسط</h3>
+                <button class="modal-close" onclick="closeAllModals()">✕</button>
+            </div>
+            <div class="modal-body" id="instDetailBody"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAllModals()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-backdrop" onclick="closeConfirm(false)"></div>
+        <div class="modal-box modal-sm">
+            <div class="modal-header modal-header-red">
+                <h3>تأكيد</h3>
+            </div>
+            <div class="modal-body">
+                <p class="confirm-text" id="confirmText"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConfirm(false)">إلغاء</button>
+                <button class="btn btn-danger" onclick="closeConfirm(true)">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="libs/xlsx.full.min.js"></script>
+    <script src="libs/excel-styles.js"></script>
+    <script src="migration.js"></script>
+    <script src="script.js"></script>
+    <script>
+    /* ═══════════════════════════════════════
+       PWA — Service Worker + Install
+       (disabled in Electron)
+    ═══════════════════════════════════════ */
+    var deferredPrompt = null;
+
+    if (!window.electronAPI && 'serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('./sw.js').then(function(reg) {
+                reg.addEventListener('updatefound', function() {
+                    var newWorker = reg.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', function() {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                if (confirm('هناك تحديث جديد. هل تريد التحديث الآن؟')) {
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                    window.location.reload();
+                                }
+                            }
+                        });
+                    }
+                });
+            }).catch(function(err) {
+                console.log('SW registration failed:', err);
+            });
+
+            navigator.serviceWorker.addEventListener('controllerchange', function() {
+                window.location.reload();
+            });
+        });
+    }
+
+    if (!window.electronAPI) {
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredPrompt = e;
+            var btn = document.getElementById('btnInstall');
+            if (btn) btn.style.display = '';
+        });
+
+        window.addEventListener('appinstalled', function() {
+            deferredPrompt = null;
+            var btn = document.getElementById('btnInstall');
+            if (btn) btn.style.display = 'none';
+        });
+    }
+
+    function installPWA() {
+        if (!deferredPrompt) {
+            if (window.electronAPI) { return; }
+            alert('يمكنك التثبيت من قائمة المتصفح (⋯) أو زر التثبيت في شريط العنوان');
+            return;
+        }
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(choice) {
+            deferredPrompt = null;
+        });
+    }
+    </script>
+    <script>
+    /* Lucide Icons — auto-render on DOM changes */
+    lucide.createIcons();
+    var _lucideTimer = null;
+    var _lucideObserver = new MutationObserver(function() {
+        if (_lucideTimer) return;
+        _lucideTimer = setTimeout(function() {
+            lucide.createIcons();
+            _lucideTimer = null;
+        }, 50);
+    });
+    _lucideObserver.observe(document.body, { childList: true, subtree: true });
+    </script>
+</body>
+</html>

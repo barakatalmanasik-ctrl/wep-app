@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/account.db"
+}
+
+model Transaction {
+  id           Int      @id @default(autoincrement())
+  date         String
+  type         String   // تعزيز أو قطع
+  amount       Float
+  balanceAfter Float    @map("balance_after")
+  notes        String   @default("")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("transactions")
+}
+
+model Setting {
+  id             Int    @id @default(1)
+  companyName    String @default("بركات المناسك للسفر والسياحة") @map("company_name")
+  currency       String @default("IQD")
+  themeColor     String @default("#1a73e8") @map("theme_color")
+
+  @@map("settings")
+}
