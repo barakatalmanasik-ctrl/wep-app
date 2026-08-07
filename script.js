@@ -371,7 +371,44 @@ var appInitialized = false;
 
 document.addEventListener('DOMContentLoaded', function() {
     bootApp();
+    enhanceMobileTables();
+    observeMobileTables();
 });
+
+function enhanceMobileTables() {
+    var tables = document.querySelectorAll('table.tbl, table.table');
+    for (var t = 0; t < tables.length; t++) {
+        var table = tables[t];
+        var thead = table.querySelector('thead');
+        var tbody = table.querySelector('tbody');
+        if (!thead || !tbody) continue;
+        var ths = thead.querySelectorAll('th');
+        if (!ths.length) continue;
+        var rows = tbody.querySelectorAll('tr');
+        for (var r = 0; r < rows.length; r++) {
+            var tds = rows[r].querySelectorAll('td');
+            if (!tds.length) continue;
+            if (tds.length === 1 && tds.length !== ths.length) continue;
+            var count = Math.min(tds.length, ths.length);
+            for (var c = 0; c < count; c++) {
+                var label = (ths[c].textContent || '').replace(/\s+/g, ' ').trim();
+                if (label) tds[c].setAttribute('data-label', label);
+            }
+        }
+    }
+}
+
+function observeMobileTables() {
+    var timer = null;
+    var observer = new MutationObserver(function() {
+        if (timer) return;
+        timer = setTimeout(function() {
+            timer = null;
+            enhanceMobileTables();
+        }, 120);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+}
 
 function bootApp() {
     if (typeof isSupabaseConfigured !== 'function' || !isSupabaseConfigured()) {

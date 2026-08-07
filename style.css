@@ -1680,3 +1680,212 @@ svg.lucide { stroke-width: 2; }
     .hero-card { background: #1a6b4e !important; -webkit-print-color-adjust: exact; }
     body { font-size: 12px; }
 }
+
+/* ═══════════════════════════════════════════════════════
+   إعادة تصميم الجوال — Mobile Redesign
+   تُطبَّق على شاشات الهاتف فقط (لا تؤثر على سطح المكتب ولا الطباعة)
+═══════════════════════════════════════════════════════ */
+
+/* ── منع أي تمرير أفقي نهائياً ── */
+@media screen and (max-width: 768px) {
+    html, body { width: 100%; overflow-x: hidden; }
+    .main, .page, .page-head, .panel, .toolbar,
+    .toolbar-row, .debt-toolbar, .modal-box, .hero-card,
+    .quick-actions, .kpi, .qa-btn, .backup-box { max-width: 100%; }
+}
+
+/* ── شريط الهاتف العلوي ── */
+@media screen and (max-width: 768px) {
+    .topbar { gap: 8px; padding: 0 10px; }
+    .topbar-title { font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .employee-display { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+}
+
+@media screen and (max-width: 480px) {
+    .topbar { gap: 6px; padding: 0 8px; }
+    .topbar-spacer { display: none; }
+    #switchUserBtn { display: none !important; }
+    .switch-user-btn { height: 30px; padding: 2px 8px; font-size: .68rem; }
+    .employee-display { max-width: 80px; font-size: .72rem; }
+}
+
+/* ── أزرار وحقول ملائمة للمس ── */
+@media screen and (max-width: 768px) {
+    .btn { height: 44px; }
+    .btn-sm { height: 40px; padding: 0 14px; }
+    .btn-icon { width: 40px; height: 40px; }
+    .debt-actions .btn-sm { width: 40px; height: 38px; }
+    .field { height: 46px; font-size: .9rem; }
+    .debt-toolbar .field { height: 44px; }
+    .tab { padding: 10px 12px; }
+}
+
+/* ── بطاقات الإحصائيات ── */
+@media screen and (max-width: 768px) {
+    .kpi-grid, .kpi-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .kpi-grid, .kpi-grid-3, .debt-kpi-grid { gap: 10px; }
+    .kpi { padding: 14px 12px; gap: 10px; }
+    .kpi-icon { width: 40px; height: 40px; }
+    .kpi-icon svg { width: 20px; height: 20px; }
+    .kpi-value { font-size: 1rem; overflow-wrap: anywhere; }
+    .kpi-label { white-space: normal; line-height: 1.4; }
+    .kpi-grid-3 .kpi-value { font-size: .9rem; }
+}
+
+/* ── أزرار الإجراءات السريعة ── */
+@media screen and (max-width: 768px) {
+    .quick-actions { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .qa-btn { min-height: 58px; padding: 10px 8px; flex-direction: column; gap: 5px; font-size: .8rem; }
+    .qa-icon, .qa-icon svg { width: 22px; height: 22px; }
+    .qa-menu {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        right: 0;
+        left: 0;
+        width: 100%;
+        min-width: 0;
+        max-height: 60vh;
+        overflow-y: auto;
+        border-radius: 16px 16px 0 0;
+        padding: 8px 8px 24px;
+        box-shadow: 0 -6px 30px rgba(0,0,0,.18);
+    }
+    .qa-menu-item { padding: 14px 12px; font-size: .95rem; }
+}
+
+/* ── رأس الصفحة ── */
+@media screen and (max-width: 768px) {
+    .page-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; margin-bottom: 20px; }
+    .page-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+    .page-head > div:nth-child(2) { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+    .page-head > div:nth-child(2) .btn { flex: 1 1 auto; justify-content: center; }
+    .page-head h2 { font-size: 1.15rem; overflow-wrap: anywhere; }
+    .page-head p { font-size: .78rem; }
+}
+
+/* ── بطاقة الرصيد الكبيرة ── */
+@media screen and (max-width: 768px) {
+    .hero-card { padding: 24px 16px; margin-bottom: 16px; }
+    .hero-amount { font-size: clamp(1.5rem, 8vw, 2rem); overflow-wrap: anywhere; }
+}
+
+/* ── الجداول → بطاقات متكدسة بعناوين الأعمدة ── */
+@media screen and (max-width: 768px) {
+    .table-scroll, .table-wrap { overflow: visible; }
+    .panel.table-wrap { background: transparent; border: none; box-shadow: none; padding: 0; }
+
+    .tbl, .table { display: block; width: 100%; }
+    .tbl thead, .table thead { display: none; }
+    .tbl tbody, .table tbody { display: block; }
+
+    .tbl tbody tr, .table tbody tr {
+        display: block;
+        margin: 0 0 12px;
+        padding: 4px 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .tbl td, .table td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        height: auto;
+        line-height: 1.5;
+        padding: 9px 14px;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        max-width: none;
+        border-bottom: 1px solid var(--border-light);
+    }
+    .tbl td:last-child, .table td:last-child { border-bottom: none; }
+
+    .tbl td::before, .table td::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        font-size: .7rem;
+        font-weight: 700;
+        color: var(--text-3);
+    }
+
+    .tbl td:only-child, .table td:only-child {
+        display: block;
+        text-align: center;
+        padding: 16px;
+    }
+    .tbl td:only-child::before, .table td:only-child::before { display: none; }
+
+    .tbl td.num, .table td.num { text-align: left; }
+
+    .tbl td.debt-col-name, .table td.debt-col-name { align-items: flex-start; }
+    .tbl td.debt-col-name strong, .table td.debt-col-name strong { max-width: 100%; }
+    .debt-truncate, .debt-phone { max-width: 100%; }
+
+    .tbl .actions-cell, .table .actions-cell { flex-wrap: wrap; }
+    .tbl .actions-cell .btn, .table .actions-cell .btn { margin: 2px; }
+}
+
+/* ── النوافذ المنبثقة → شيت سفلي ── */
+@media screen and (max-width: 768px) {
+    .modal { padding: 0; align-items: flex-end; }
+    .modal-box {
+        width: 100%;
+        max-width: 100% !important;
+        max-height: 92vh !important;
+        border-radius: 18px 18px 0 0;
+    }
+    .modal-header { padding: 16px 16px 14px; }
+    .modal-header h3 { font-size: .98rem; }
+    .modal-body { padding: 16px 16px 8px; }
+    .modal-footer { padding: 12px 16px 16px; flex-wrap: wrap; }
+    .modal-footer .btn { flex: 1 1 auto; justify-content: center; min-width: 0; }
+    .modal-close { width: 38px; height: 38px; }
+}
+
+/* ── النماذج والحقول ── */
+@media screen and (max-width: 768px) {
+    .field-row { grid-template-columns: 1fr; gap: 0; }
+    .checkbox-label { font-size: .85rem; }
+    .detail-info-card { padding: 10px 12px; }
+    .toolbar-row { flex-direction: column; align-items: stretch; gap: 10px; }
+    .toolbar-row .field-sm,
+    .toolbar-row select.field,
+    .toolbar-row input.field { width: 100%; min-width: 0; }
+    .toolbar-spacer { display: none; }
+    .tab-group { width: 100%; }
+    .tab { flex: 1; text-align: center; }
+}
+
+/* ── شريط البحث والفلاتر للديون والأقساط ── */
+@media screen and (max-width: 768px) {
+    .debt-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .debt-toolbar .field-search,
+    .debt-toolbar .field-filter { max-width: 100%; min-width: 0; }
+    .debt-toolbar .debt-count { text-align: center; }
+}
+
+/* ── Toast ── */
+@media screen and (max-width: 768px) {
+    .toast-wrap { left: 16px; right: 16px; bottom: 16px; }
+    .toast { min-width: 0; width: 100%; }
+}
+
+/* ── النسخ الاحتياطي وبطاقات العميل ── */
+@media screen and (max-width: 768px) {
+    .backup-grid { grid-template-columns: 1fr; gap: 12px; }
+    .backup-box { padding: 24px 16px; }
+    .client-info-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+}
+
+/* ── الشاشات الصغيرة جداً ── */
+@media screen and (max-width: 400px) {
+    .main { padding: 68px 12px 28px; }
+    .kpi-value { font-size: .92rem; }
+    .tbl td, .table td { padding: 8px 12px; }
+    .qa-menu-item { font-size: .9rem; }
+}
