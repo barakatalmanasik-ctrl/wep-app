@@ -73,23 +73,21 @@ function setManualDebts(debts) {
 /* ═══════════════════════════════════════
    نظام الموظف — جلسة العمل
 ══════════════════════════════════════ */
-var EMPLOYEE_KEY = 'barakat_employee_session';
+var _employeeSession = null;
 
 function getEmployeeSession() {
-    try {
-        var raw = localStorage.getItem(EMPLOYEE_KEY);
-        if (raw) return JSON.parse(raw);
-    } catch (e) { /* تجاهل */ }
-    return null;
+    return _employeeSession;
 }
 
 function setEmployeeSession(name) {
-    var session = { name: String(name), date: todayStr() };
-    localStorage.setItem(EMPLOYEE_KEY, JSON.stringify(session));
+    _employeeSession = { name: String(name), date: todayStr() };
+    if (typeof sbUpdateProfileName === 'function') {
+        sbUpdateProfileName(name).catch(function() { /* تجاهل فشل الحفظ — الجلسة في الذاكرة */ });
+    }
 }
 
 function clearEmployeeSession() {
-    localStorage.removeItem(EMPLOYEE_KEY);
+    _employeeSession = null;
 }
 
 function getEmployeeName() {
@@ -112,8 +110,15 @@ function showLoginOverlay() {
     var overlay = document.getElementById('loginOverlay');
     if (overlay) {
         overlay.classList.add('show');
-        var input = document.getElementById('employeeNameInput');
-        if (input) { input.value = ''; input.focus(); }
+        var nameInput = document.getElementById('employeeNameInput');
+        var emailInput = document.getElementById('loginEmailInput');
+        var passInput = document.getElementById('loginPasswordInput');
+        var submitBtn = document.getElementById('loginSubmitBtn');
+        if (nameInput) nameInput.value = '';
+        if (emailInput) emailInput.value = '';
+        if (passInput) passInput.value = '';
+        if (submitBtn) submitBtn.disabled = false;
+        if (nameInput) nameInput.focus();
         var switchBtn = document.getElementById('switchUserBtn');
         var logoutBtn = document.getElementById('logoutBtn');
         var userCard = document.getElementById('sidebarUserCard');
@@ -130,18 +135,65 @@ function hideLoginOverlay() {
 
 function submitEmployeeLogin(e) {
     e.preventDefault();
-    var input = document.getElementById('employeeNameInput');
-    var name = (input ? input.value : '').trim();
-    if (!name) return;
+    var nameInput = document.getElementById('employeeNameInput');
+    var emailInput = document.getElementById('loginEmailInput');
+    var passInput = document.getElementById('loginPasswordInput');
+    var name = (nameInput ? nameInput.value : '').trim();
+    var email = (emailInput ? emailInput.value : '').trim();
+    var pass = passInput ? passInput.value : '';
+    if (!name || !email || !pass) {
+        if (typeof toast === 'function') toast('أدخل الاسم والبريد الإلكتروني وكلمة المرور', 'error');
+        return;
+    }
+    var btn = document.getElementById('loginSubmitBtn');
+    if (btn) btn.disabled = true;
+    supabaseSignIn(email, pass).then(function() {
+        return finishEmployeeLogin(name);
+    }).catch(function(err) {
+        if (typeof toast === 'function') {
+            toast('فشل تسجيل الدخول: ' + (err && err.message ? err.message : 'حاول مجدداً'), 'error');
+        }
+    }).then(function() {
+        if (btn) btn.disabled = false;
+    });
+}
+
+function finishEmployeeLogin(name) {
     setEmployeeSession(name);
-    hideLoginOverlay();
-    updateEmployeeDisplay(name);
-    initApp();
+    if (window.__SUPA_DB__ && db) {
+        hideLoginOverlay();
+        updateEmployeeDisplay(name);
+        initApp();
+        return Promise.resolve();
+    }
+    return sbLoadAll().then(function(loadedDb) {
+        window.__SUPA_DB__ = loadedDb;
+        db = loadedDb;
+        hideLoginOverlay();
+        updateEmployeeDisplay(name);
+        initApp();
+    }).catch(function(err) {
+        console.error('Supabase load failed after login:', err);
+        if (typeof toast === 'function') {
+            toast('فشل تحميل البيانات: ' + (err && err.message ? err.message : 'حاول مجدداً'), 'error');
+        }
+        throw err;
+    });
 }
 
 function switchEmployee() {
-    clearEmployeeSession();
-    showLoginOverlay();
+    showConfirm('هل تريد تبديل الحساب؟', function(ok) {
+        if (!ok) return;
+        clearEmployeeSession();
+        appInitialized = false;
+        db = null;
+        window.__SUPA_DB__ = null;
+        if (typeof supabaseSignOut === 'function') {
+            supabaseSignOut().then(function() { showLoginOverlay(); });
+        } else {
+            showLoginOverlay();
+        }
+    });
 }
 
 function logoutEmployee() {
@@ -150,7 +202,12 @@ function logoutEmployee() {
         clearEmployeeSession();
         appInitialized = false;
         db = null;
-        showLoginOverlay();
+        window.__SUPA_DB__ = null;
+        if (typeof supabaseSignOut === 'function') {
+            supabaseSignOut().then(function() { showLoginOverlay(); });
+        } else {
+            showLoginOverlay();
+        }
     });
 }
 
@@ -308,9 +365,40 @@ function printActivityLog() {
 var appInitialized = false;
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (!checkEmployeeSession()) return;
-    initApp();
+    bootApp();
 });
+
+function bootApp() {
+    if (typeof isSupabaseConfigured !== 'function' || !isSupabaseConfigured()) {
+        if (typeof toast === 'function') {
+            toast('لم يتم إعداد Supabase — ضع SUPABASE_URL و SUPABASE_ANON_KEY في ملف config.js', 'error');
+        }
+        showLoginOverlay();
+        return;
+    }
+    supabaseGetSession().then(function(session) {
+        if (!session) {
+            showLoginOverlay();
+            return null;
+        }
+        return sbLoadAll().then(function(loadedDb) {
+            window.__SUPA_DB__ = loadedDb;
+            db = loadedDb;
+            return sbGetEmployeeSession();
+        }).then(function(session2) {
+            _employeeSession = session2;
+            if (!checkEmployeeSession()) return null;
+            initApp();
+            return null;
+        });
+    }).catch(function(err) {
+        console.error('Supabase load failed:', err);
+        if (typeof toast === 'function') {
+            toast('فشل الاتصال بـ Supabase: ' + (err && err.message ? err.message : 'تحقق من config.js'), 'error');
+        }
+        showLoginOverlay();
+    });
+}
 
 function initApp() {
     if (appInitialized) {
@@ -318,16 +406,7 @@ function initApp() {
         return;
     }
     appInitialized = true;
-    var result = initDatabase();
-    db = result.db;
-
-    if (result.migrated && result.message) {
-        setTimeout(function() { toast(result.message, 'success'); }, 400);
-    } else if (result.future) {
-        setTimeout(function() { toast(result.message, 'warning'); }, 400);
-    } else if (result.error) {
-        setTimeout(function() { toast(result.message, 'error'); }, 400);
-    }
+    if (!db) db = window.__SUPA_DB__ || null;
 
     nextId = computeNextId();
     nextExpId = computeNextExpId();
@@ -380,7 +459,8 @@ function computeNextClientId() {
 }
 
 function saveDB() {
-    if (db) writeDB(db);
+    if (!db) return;
+    if (typeof sbScheduleSync === 'function') sbScheduleSync();
 }
 
 /* ═══════════════════════════════════════
@@ -1591,7 +1671,17 @@ function importJSON(e) {
                         metadata: JSON.parse(JSON.stringify(db.metadata || {}))
                     };
                     try {
-                        localStorage.setItem('barakat_autobackup_' + Date.now(), JSON.stringify(autoBackup));
+                        if (Array.isArray(db.backups)) {
+                            db.backups.push({
+                                key: 'autobackup_' + Date.now(),
+                                timestamp: new Date().toISOString(),
+                                fromVersion: CURRENT_DATABASE_VERSION,
+                                label: 'قبل الاستيراد'
+                            });
+                            while (db.backups.length > 10) {
+                                db.backups.splice(0, db.backups.length - 10);
+                            }
+                        }
                     } catch (e) { /* تجاهل */ }
 
                     var importedClients = Array.isArray(data.clients)

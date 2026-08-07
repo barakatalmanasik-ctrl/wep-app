@@ -24,11 +24,15 @@
     <div class="login-overlay" id="loginOverlay">
         <div class="login-card">
             <div class="login-icon"><i data-lucide="user-circle"></i></div>
-            <h2>من يستخدم البرنامج الآن؟</h2>
+            <h2>تسجيل الدخول</h2>
             <form onsubmit="submitEmployeeLogin(event)">
                 <input type="text" class="field login-input" id="employeeNameInput"
                        placeholder="اسم الموظف" autocomplete="off" required>
-                <button type="submit" class="btn btn-green login-btn">
+                <input type="email" class="field login-input" id="loginEmailInput"
+                       placeholder="البريد الإلكتروني" autocomplete="username" required>
+                <input type="password" class="field login-input" id="loginPasswordInput"
+                       placeholder="كلمة المرور" autocomplete="current-password" required>
+                <button type="submit" class="btn btn-green login-btn" id="loginSubmitBtn">
                     <i data-lucide="log-in" style="width:18px;height:18px"></i> دخول
                 </button>
             </form>
@@ -1841,9 +1845,13 @@
         </div>
     </div>
 
+    <script src="config.js"></script>
     <script src="libs/xlsx.full.min.js"></script>
     <script src="libs/excel-styles.js"></script>
+    <script src="libs/supabase.min.js"></script>
     <script src="migration.js"></script>
+    <script src="supabase-client.js"></script>
+    <script src="supabase-db.js"></script>
     <script src="script.js"></script>
     <script>
     /* ═══════════════════════════════════════

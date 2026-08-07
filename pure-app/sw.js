@@ -15,7 +15,7 @@ var DEV_MODE = false;
    الإعدادات
    ═══════════════════════════════════════════════════ */
 
-var CACHE_NAME = DEV_MODE ? 'barakat-dev-v13.0.0' : 'barakat-prod-v13.0.0';
+var CACHE_NAME = DEV_MODE ? 'barakat-dev-v14.0.0' : 'barakat-prod-v14.0.0';
 var CACHE_OLD_PREFIX = 'barakat-';
 var FONT_CACHE = 'barakat-fonts-v1';
 
@@ -34,7 +34,22 @@ var DEV_NO_CACHE = [
     './index.html',
     './style.css',
     './script.js',
-    './migration.js'
+    './migration.js',
+    './config.js',
+    './supabase-client.js',
+    './supabase-db.js'
+];
+
+/* ملفات تُجلب دائماً من الشبكة أولاً (Network First)
+   حتى في وضع الإنتاج — خاصة config.js الذي يحتوي
+   على بيانات الاتصال التي يجب ألا تُخزّن نهائياً */
+var NETWORK_FIRST = [
+    './index.html',
+    './config.js',
+    './supabase-client.js',
+    './supabase-db.js',
+    './migration.js',
+    './script.js'
 ];
 
 /* ═══════════════════════════════════════════════════
@@ -103,6 +118,30 @@ self.addEventListener('fetch', function(e) {
     }
 
     if (url.origin === self.location.origin) {
+
+        /* ── ملفات حساسة: شبكة أولاً دائماً ── */
+        var path = url.pathname.replace(/^\.\//, '/');
+        var isNetworkFirst = false;
+        for (var i = 0; i < NETWORK_FIRST.length; i++) {
+            var p = NETWORK_FIRST[i].replace('./', '/');
+            if (path === p || path === '/' + p) { isNetworkFirst = true; break; }
+        }
+        if (isNetworkFirst) {
+            e.respondWith(
+                fetch(e.request).then(function(resp) {
+                    if (resp && resp.status === 200) {
+                        var clone = resp.clone();
+                        caches.open(CACHE_NAME).then(function(cache) {
+                            cache.put(e.request, clone);
+                        });
+                    }
+                    return resp;
+                }).catch(function() {
+                    return caches.match(e.request);
+                })
+            );
+            return;
+        }
 
         /* ── وضع التطوير: لا كاش للملفات المتغيرة ── */
         if (DEV_MODE) {
