@@ -29,8 +29,8 @@ watchdog_stderr.txt
 *.p12
 *.pfx
 
-# بيانات التطبيق الحقيقية (مستثنى من git دائماً)
-config.js
+# بيانات التطبيق الحقيقية (مستثنى من git دائماً) — جذر المستودع فقط
+/config.js
 
 # OS
 Thumbs.db

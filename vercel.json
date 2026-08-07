@@ -2,6 +2,10 @@
   "version": 2,
   "routes": [
     {
+      "src": "/config.js",
+      "dest": "/api/config.js"
+    },
+    {
       "src": "/sw.js",
       "headers": {
         "Cache-Control": "no-cache, no-store, must-revalidate"

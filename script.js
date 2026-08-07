@@ -82,7 +82,9 @@ function getEmployeeSession() {
 function setEmployeeSession(name) {
     _employeeSession = { name: String(name), date: todayStr() };
     if (typeof sbUpdateProfileName === 'function') {
-        sbUpdateProfileName(name).catch(function() { /* تجاهل فشل الحفظ — الجلسة في الذاكرة */ });
+        Promise.resolve().then(function() {
+            return sbUpdateProfileName(name);
+        }).catch(function() { /* تجاهل فشل الحفظ — الجلسة في الذاكرة */ });
     }
 }
 
@@ -147,15 +149,18 @@ function submitEmployeeLogin(e) {
     }
     var btn = document.getElementById('loginSubmitBtn');
     if (btn) btn.disabled = true;
-    supabaseSignIn(email, pass).then(function() {
-        return finishEmployeeLogin(name);
-    }).catch(function(err) {
-        if (typeof toast === 'function') {
-            toast('فشل تسجيل الدخول: ' + (err && err.message ? err.message : 'حاول مجدداً'), 'error');
-        }
-    }).then(function() {
-        if (btn) btn.disabled = false;
-    });
+    Promise.resolve()
+        .then(function() { return supabaseSignIn(email, pass); })
+        .then(function() { return finishEmployeeLogin(name); })
+        .catch(function(err) {
+            console.error('Login failed:', err);
+            if (typeof toast === 'function') {
+                toast('فشل تسجيل الدخول: ' + (err && err.message ? err.message : 'حاول مجدداً'), 'error');
+            }
+        })
+        .then(function() {
+            if (btn) btn.disabled = false;
+        });
 }
 
 function finishEmployeeLogin(name) {

@@ -32,7 +32,7 @@ function getSupabaseClient() {
     }
     var cfg = getSupabaseConfig();
     if (!cfg.url || !cfg.anonKey) {
-        throw new Error('اضبط SUPABASE_URL و SUPABASE_ANON_KEY في ملف config.js');
+        throw new Error('مفقود SUPABASE_URL أو SUPABASE_ANON_KEY — املأ config.js (محلياً) أو متغيرات بيئة Vercel (للنشر)');
     }
     _sbClient = supabase.createClient(cfg.url, cfg.anonKey, {
         auth: {
@@ -47,7 +47,9 @@ function getSupabaseClient() {
 /* ── الجلسة الحالية (بدون حفظ في localStorage) ── */
 
 function supabaseGetSession() {
-    return getSupabaseClient().auth.getSession().then(function(res) {
+    return Promise.resolve().then(function() {
+        return getSupabaseClient().auth.getSession();
+    }).then(function(res) {
         return (res && res.data && res.data.session) ? res.data.session : null;
     });
 }
@@ -69,9 +71,12 @@ function _authErrorMessage(code, fallback) {
 }
 
 function supabaseSignIn(email, password) {
-    return getSupabaseClient().auth.signInWithPassword({
-        email: String(email || '').trim(),
-        password: String(password || '')
+    return Promise.resolve().then(function() {
+        var client = getSupabaseClient();
+        return client.auth.signInWithPassword({
+            email: String(email || '').trim(),
+            password: String(password || '')
+        });
     }).then(function(res) {
         if (res && res.error) {
             var code = res.error.code || '';
@@ -85,7 +90,9 @@ function supabaseSignIn(email, password) {
 }
 
 function supabaseSignOut() {
-    return getSupabaseClient().auth.signOut().catch(function() {
+    return Promise.resolve().then(function() {
+        return getSupabaseClient().auth.signOut();
+    }).catch(function() {
         /* تجاهل أخطاء إنهاء الجلسة */
     });
 }
