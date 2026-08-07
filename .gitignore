@@ -1,21 +1,16 @@
-# Node.js
+# Node.js (غير مستخدم لكن قد يظهر في libs مستقبلاً)
 node_modules/
 npm-debug.log*
 yarn-error.log*
 
-# Build outputs (إعادة إنشائها عبر build.bat)
+# Build outputs
 dist/
 release/
 Release/
 out/
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
-*.egg-info/
+# Vercel
+.vercel/
 
 # Runtime / temp files
 *.log

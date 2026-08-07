@@ -342,6 +342,7 @@ function initApp() {
     setTodayDate('expDate');
     renderAll();
     initReportYear();
+    handlePageParam();
     setInterval(function() {
         var trashPage = document.getElementById('page-trash');
         if (trashPage && trashPage.classList.contains('active')) renderTrash();
@@ -385,6 +386,19 @@ function saveDB() {
 /* ═══════════════════════════════════════
    التنقل بين الصفحات
 ═══════════════════════════════════════ */
+function handlePageParam() {
+    var params = new URLSearchParams(window.location.search);
+    var page = params.get('page');
+    if (!page) return;
+    var valid = ['home', 'statement', 'reports', 'expenses', 'clients', 'debts', 'installments', 'activity', 'backup', 'trash'];
+    if (valid.indexOf(page) !== -1) {
+        showPage(page);
+        if (page === 'expenses') openExpenseDialog();
+    } else if (page === 'sell') {
+        openTicketDialog();
+    }
+}
+
 function showPage(id) {
     document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
     document.getElementById('page-' + id).classList.add('active');
@@ -3133,7 +3147,7 @@ function openServiceDialog() {
     document.getElementById('serviceDesc').value = '';
     document.getElementById('serviceAmount').value = '';
     document.getElementById('servicePaymentMethod').value = 'cash';
-    showModal('serviceModal');
+    showModal('clientServiceModal');
 }
 
 function submitService(e) {
@@ -3215,7 +3229,7 @@ function openServiceEdit(svcId) {
     document.getElementById('serviceAmount').value = safeNum(svc.amount);
     document.getElementById('servicePaymentMethod').value = svc.paymentMethod || 'cash';
 
-    showModal('serviceModal');
+    showModal('clientServiceModal');
 }
 
 function confirmDeleteService(svcId) {
