@@ -6,7 +6,9 @@
    - ينشئ عميل واحد فقط (getSupabaseClient)
    - المصادقة: بريد إلكتروني + كلمة مرور (signInWithPassword)
      وهوية الموظف تُقرأ من جدول profiles
-   - لا يُستخدم localStorage نهائياً (persistSession: false)
+   - حفظ الجلسة: التخزين الرسمي لـ Supabase في localStorage
+     (persistSession) + تجديد التوكن تلقائياً (autoRefreshToken)
+     + استعادة الجلسة عند فتح التطبيق (supabaseBootSession)
    ═══════════════════════════════════════════════════ */
 
 'use strict';
@@ -19,6 +21,7 @@ function getSupabaseConfig() {
 }
 
 var _sbClient = null;
+var _authStateHook = null;
 
 function isSupabaseConfigured() {
     var cfg = getSupabaseConfig();
@@ -36,21 +39,48 @@ function getSupabaseClient() {
     }
     _sbClient = supabase.createClient(cfg.url, cfg.anonKey, {
         auth: {
-            persistSession: false,
+            persistSession: true,
             autoRefreshToken: true,
-            detectSessionInUrl: false
+            detectSessionInUrl: true
         }
+    });
+    _sbClient.auth.onAuthStateChange(function(event) {
+        if (_authStateHook) _authStateHook(event);
     });
     return _sbClient;
 }
 
-/* ── الجلسة الحالية (بدون حفظ في localStorage) ── */
+/* ── تسجيل دالة لاستقبال أحداث الجلسة (تسجيل الخروج/التجديد ...) ── */
+
+function supabaseSetAuthStateHook(fn) {
+    _authStateHook = (typeof fn === 'function') ? fn : null;
+}
+
+/* ── الجلسة الحالية (من تخزين Supabase الرسمي) ── */
 
 function supabaseGetSession() {
     return Promise.resolve().then(function() {
         return getSupabaseClient().auth.getSession();
     }).then(function(res) {
         return (res && res.data && res.data.session) ? res.data.session : null;
+    });
+}
+
+/* ── استعادة الجلسة عند فتح التطبيق ──
+   يقرأ الجلسة المحفوظة في localStorage (persistSession)، ثم يتحقق
+   من صحتها عبر الخادم بـ getUser() الذي يجدد التوكن تلقائياً إذا
+   كان منتهياً. إذا فشل التجديد أو بطلت الجلسة تُعاد null (يُطلب
+   تسجيل الدخول). */
+
+function supabaseBootSession() {
+    return Promise.resolve().then(function() {
+        return getSupabaseClient().auth.getSession();
+    }).then(function(res) {
+        var session = (res && res.data && res.data.session) ? res.data.session : null;
+        if (!session) return null;
+        return getSupabaseClient().auth.getUser().then(function(ur) {
+            return (ur && ur.error) ? null : session;
+        });
     });
 }
 

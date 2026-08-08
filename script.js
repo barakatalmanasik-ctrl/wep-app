@@ -418,7 +418,18 @@ function bootApp() {
         showLoginOverlay();
         return;
     }
-    supabaseGetSession().then(function(session) {
+    if (typeof supabaseSetAuthStateHook === 'function') {
+        supabaseSetAuthStateHook(function(event) {
+            if (event !== 'SIGNED_OUT') return;
+            clearEmployeeSession();
+            appInitialized = false;
+            db = null;
+            window.__SUPA_DB__ = null;
+            showLoginOverlay();
+        });
+    }
+    var getBootSession = (typeof supabaseBootSession === 'function') ? supabaseBootSession : supabaseGetSession;
+    getBootSession().then(function(session) {
         if (!session) {
             showLoginOverlay();
             return null;
