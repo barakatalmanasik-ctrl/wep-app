@@ -470,7 +470,6 @@ function initApp() {
     saveDB();
     setTodayDate('incDate');
     setTodayDate('tktDate');
-    setTodayDate('svcDate');
     setTodayDate('expDate');
     renderAll();
     initReportYear();
@@ -877,74 +876,37 @@ document.addEventListener('click', function(e) {
 function openService(type) {
     closeCutDropdown();
     if (type === 'ticket') { openTicketDialog(); return; }
-    openServiceDialog(type);
+    openCutServiceDialog(type);
 }
 
-function openServiceDialog(type) {
+function openCutServiceDialog(type) {
     var cfg = SERVICE_TYPES[type] || SERVICE_TYPES.visa;
-    document.getElementById('svcType').value = type;
-    setTodayDate('svcDate');
-    document.getElementById('svcCustomer').value = '';
-    document.getElementById('svcProvider').value = '';
+    document.getElementById('svcType').value = type || 'visa';
     document.getElementById('svcBase').value = '';
     document.getElementById('svcSale').value = '';
     document.getElementById('svcNotes').value = '';
-    document.getElementById('svcPaymentMethod').value = 'cash';
-    var debtBox = document.getElementById('svcDebtFields');
-    if (debtBox) debtBox.style.display = 'none';
-    document.getElementById('svcAmountPaid').value = '';
-    document.getElementById('svcRemaining').value = '';
-    document.getElementById('svcProviderLabel').textContent = cfg.providerLabel;
-    document.getElementById('svcProvider').placeholder = cfg.providerPh;
     var h = document.getElementById('svcHeader');
     h.className = 'modal-header modal-header-' + cfg.color;
     document.getElementById('svcTitle').innerHTML =
         '<i data-lucide="' + cfg.icon + '" style="width:18px;height:18px;vertical-align:middle"></i> ' + cfg.label;
     var btn = document.getElementById('svcSaveBtn');
     btn.className = 'btn btn-' + cfg.btn;
-    btn.textContent = 'حفظ العملية';
+    btn.textContent = 'حفظ';
     showModal('serviceModal');
     if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-function toggleSvcDebtFields() {
-    var method = document.getElementById('svcPaymentMethod').value;
-    var box = document.getElementById('svcDebtFields');
-    if (box) box.style.display = method === 'debt' ? '' : 'none';
-    if (method === 'cash') {
-        document.getElementById('svcAmountPaid').value = '';
-        document.getElementById('svcRemaining').value = '';
-    } else {
-        calcSvcDebtRemaining();
-    }
-}
-
-function calcSvcDebtRemaining() {
-    var sale = safeNum(document.getElementById('svcSale').value);
-    var paid = safeNum(document.getElementById('svcAmountPaid').value);
-    document.getElementById('svcRemaining').value = Math.max(0, sale - paid);
 }
 
 function saveService(e) {
     e.preventDefault();
     var type = document.getElementById('svcType').value || 'visa';
     var cfg = SERVICE_TYPES[type] || SERVICE_TYPES.visa;
-    var date = document.getElementById('svcDate').value;
-    var customer = document.getElementById('svcCustomer').value.trim();
-    var provider = document.getElementById('svcProvider').value.trim();
+    var date = todayStr();
     var basePrice = safeNum(document.getElementById('svcBase').value);
     var salePrice = safeNum(document.getElementById('svcSale').value);
     var notes = document.getElementById('svcNotes').value.trim();
-    var paymentMethod = document.getElementById('svcPaymentMethod').value;
-    var amountPaid = paymentMethod === 'debt' ? safeNum(document.getElementById('svcAmountPaid').value) : salePrice;
-    var remainingAmount = paymentMethod === 'debt' ? Math.max(0, salePrice - amountPaid) : 0;
 
-    if (!date || basePrice <= 0) {
-        toast('يرجى إدخال السعر الأساسي والتاريخ', 'error');
-        return;
-    }
-    if (paymentMethod === 'debt' && (amountPaid < 0 || amountPaid > salePrice)) {
-        toast('المبلغ المدفوع يجب أن يكون بين 0 و سعر البيع', 'error');
+    if (basePrice <= 0) {
+        toast('يرجى إدخال السعر الأساسي', 'error');
         return;
     }
 
@@ -955,8 +917,8 @@ function saveService(e) {
         type: 'ticket',
         serviceType: type,
         date: String(date),
-        customer: String(customer),
-        airline: String(provider),
+        customer: '',
+        airline: '',
         basePrice: basePrice,
         salePrice: salePrice,
         profit: profit,
@@ -964,9 +926,9 @@ function saveService(e) {
         amount: 0,
         balance: 0,
         clientId: 0,
-        paymentMethod: paymentMethod,
-        amountPaid: amountPaid,
-        remainingAmount: remainingAmount,
+        paymentMethod: 'cash',
+        amountPaid: salePrice,
+        remainingAmount: 0,
         debtPayments: [],
         bookingRef: '',
         pnr: ''
@@ -975,10 +937,8 @@ function saveService(e) {
 
     refreshApplicationState();
     closeAllModals();
-    logActivity(cfg.label, (customer || 'بدون اسم') + ' — تكلفة: ' + fmt(basePrice) + ' د.ع');
-    if (paymentMethod === 'debt' && remainingAmount > 0) {
-        toast('تم حفظ ' + cfg.label + ' (دين) — المتبقي: ' + fmt(remainingAmount) + ' د.ع', 'success');
-    } else if (salePrice <= 0) {
+    logActivity(cfg.label, 'بدون اسم — تكلفة: ' + fmt(basePrice) + ' د.ع');
+    if (salePrice <= 0) {
         toast('تم حفظ ' + cfg.label + ' — بانتظار إدخال سعر البيع', 'success');
     } else {
         toast('تم حفظ ' + cfg.label + ' — الربح: ' + fmt(profit) + ' د.ع', 'success');

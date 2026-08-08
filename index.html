@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
     <link rel="stylesheet" href="libs/cairo.css">
-    <link rel="stylesheet" href="style.css?v=16">
+    <link rel="stylesheet" href="style.css?v=17">
     <script src="libs/lucide.min.js"></script>
 </head>
 <body>
@@ -1215,67 +1215,28 @@
     ═══════════════════════════════════════════ -->
     <div class="modal" id="serviceModal">
         <div class="modal-backdrop" onclick="closeAllModals()"></div>
-        <div class="modal-box modal-lg">
+        <div class="modal-box">
             <div class="modal-header modal-header-green" id="svcHeader">
                 <h3 id="svcTitle"><i data-lucide="stamp" style="width:18px;height:18px;vertical-align:middle"></i> إصدار فيزا</h3>
                 <button class="modal-close" onclick="closeAllModals()">✕</button>
             </div>
             <form class="modal-body" onsubmit="saveService(event)">
                 <input type="hidden" id="svcType">
-                <div class="field-row">
-                    <div class="field-group">
-                        <label>التاريخ</label>
-                        <input type="date" class="field" id="svcDate" required>
-                    </div>
-                    <div class="field-group">
-                        <label>اسم العميل</label>
-                        <input type="text" class="field" id="svcCustomer" placeholder="اختياري">
-                    </div>
+                <div class="field-group">
+                    <label>السعر الأساسي <small>تكلفة الشراء</small></label>
+                    <input type="number" class="field" id="svcBase" min="1" step="1" placeholder="0" required>
                 </div>
                 <div class="field-group">
-                    <label id="svcProviderLabel">مزود الخدمة</label>
-                    <input type="text" class="field" id="svcProvider" placeholder="اختياري">
+                    <label>سعر البيع <small>مبلغ العميل — يترك فارغاً</small></label>
+                    <input type="number" class="field" id="svcSale" min="0" step="1" placeholder="0">
                 </div>
-                <div class="field-row">
-                    <div class="field-group">
-                        <label>السعر الأساسي <small>تكلفة الشراء</small></label>
-                        <input type="number" class="field" id="svcBase" min="1" step="1"
-                               placeholder="0" required>
-                    </div>
-                    <div class="field-group">
-                        <label>سعر البيع <small>مبلغ العميل — يترك فارغاً</small></label>
-                        <input type="number" class="field" id="svcSale" min="0" step="1"
-                               placeholder="0">
-                    </div>
-                </div>
-
-                <div class="field-group">
-                    <label>طريقة دفع العميل</label>
-                    <select class="field" id="svcPaymentMethod" onchange="toggleSvcDebtFields()">
-                        <option value="cash">نقداً</option>
-                        <option value="debt">دين</option>
-                    </select>
-                </div>
-                <div id="svcDebtFields" style="display:none">
-                    <div class="field-row">
-                        <div class="field-group">
-                            <label>المبلغ المدفوع (دينار عراقي)</label>
-                            <input type="number" class="field" id="svcAmountPaid" min="0" step="1" placeholder="0" oninput="calcSvcDebtRemaining()">
-                        </div>
-                        <div class="field-group">
-                            <label>المبلغ المتبقي</label>
-                            <input type="number" class="field" id="svcRemaining" readonly style="background:#f1f5f9">
-                        </div>
-                    </div>
-                </div>
-
                 <div class="field-group">
                     <label>الملاحظات</label>
                     <input type="text" class="field" id="svcNotes" placeholder="تفاصيل الخدمة">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeAllModals()">إلغاء</button>
-                    <button type="submit" class="btn btn-blue" id="svcSaveBtn">حفظ العملية</button>
+                    <button type="submit" class="btn btn-blue" id="svcSaveBtn">حفظ</button>
                 </div>
             </form>
         </div>
@@ -1845,14 +1806,14 @@
         </div>
     </div>
 
-    <script src="config.js?v=16"></script>
+    <script src="config.js?v=17"></script>
     <script src="libs/xlsx.full.min.js"></script>
     <script src="libs/excel-styles.js"></script>
     <script src="libs/supabase.min.js"></script>
-    <script src="migration.js?v=16"></script>
-    <script src="supabase-client.js?v=16"></script>
-    <script src="supabase-db.js?v=16"></script>
-    <script src="script.js?v=16"></script>
+    <script src="migration.js?v=17"></script>
+    <script src="supabase-client.js?v=17"></script>
+    <script src="supabase-db.js?v=17"></script>
+    <script src="script.js?v=17"></script>
     <script>
     /* ═══════════════════════════════════════
        PWA — Service Worker + Install
