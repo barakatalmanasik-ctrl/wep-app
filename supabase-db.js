@@ -645,7 +645,9 @@ function sbSaveAll() {
                     return delInstPay;
                 })
                 .then(function() {
-                    return sbUpsertRows(client, 'installments', instRows);
+                    /* .select() ضروري — بدونه يُرجع Supabase data:null ولا نستطيع
+                       التقاط معرّفات الخادم لتوثيقها على الأقساط في الذاكرة */
+                    return client.from('installments').upsert(instRows, { onConflict: 'id' }).select();
                 })
                 .then(function(r) {
                     if (r && r.error) throw r.error;

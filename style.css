@@ -1714,6 +1714,7 @@ svg.lucide { stroke-width: 2; }
     .btn { height: 44px; }
     .btn-sm { height: 40px; padding: 0 14px; }
     .btn-icon { width: 40px; height: 40px; }
+    .debt-actions { flex-wrap: wrap; }
     .debt-actions .btn-sm { width: 40px; height: 38px; }
     .field { height: 46px; font-size: .9rem; }
     .debt-toolbar .field { height: 44px; }

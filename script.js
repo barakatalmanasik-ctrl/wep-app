@@ -4258,6 +4258,11 @@ function showInstDetail(id) {
             html += '</td></tr>';
         }
         html += '</tbody></table></div>';
+    } else if (remaining > 0) {
+        html += '<div style="padding:16px;background:var(--warning-bg,#FFF8E1);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">';
+        html += '<p style="margin:0 0 10px;color:var(--muted);font-size:14px">لا توجد أقساط مسجّلة لهذا العقد — يمكن تسجيل دفعة مباشرة على العقد.</p>';
+        html += '<button class="btn btn-green" onclick="recordInstPayment(' + c.id + ',-1)">تسجيل دفعة على العقد</button>';
+        html += '</div>';
     }
     var allPays = [];
     if (Array.isArray(c.installments)) {
@@ -4352,15 +4357,16 @@ function renderInstallments() {
         html += '<td><span class="debt-badge ' + (stColors2[st3] || 'debt-badge-unpaid') + '">' + (stLabels2[st3] || st3) + '</span></td>';
         html += '<td>' + (item.startDate || '—') + '</td>';
         html += '<td class="debt-col-actions"><div class="debt-actions">';
+        html += '<button class="btn-sm btn-blue" onclick="showInstDetail(' + item.id + ')" title="فتح تفاصيل العقد والأقساط">تفاصيل</button>';
         html += '<button class="btn-sm btn-edit" onclick="openInstallmentEdit(' + item.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>';
-        if (st3 !== 'completed') {
+        if (rem > 0) {
             var firstUnpaid = -1;
             if (Array.isArray(item.installments)) {
                 for (var m = 0; m < item.installments.length; m++) {
                     if (item.installments[m].status !== 'paid' && item.installments[m].status !== 'cancelled') { firstUnpaid = m; break; }
                 }
             }
-            if (firstUnpaid >= 0) html += '<button class="btn-sm btn-green" onclick="recordInstPayment(' + item.id + ',' + firstUnpaid + ')">تسجيل دفعة</button>';
+            html += '<button class="btn-sm btn-green" onclick="recordInstPayment(' + item.id + ',' + firstUnpaid + ')">تسجيل دفعة</button>';
         } else {
             html += '<button class="btn-sm btn-green-disabled"><i data-lucide="circle-check-big"></i> تم السداد</button>';
         }
