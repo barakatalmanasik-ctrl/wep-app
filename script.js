@@ -4049,15 +4049,18 @@ function saveInstallment(e) {
                 contracts[i].period = period; contracts[i].notes = notes;
                 var oldInsts = old.installments || [];
                 for (var k = 0; k < schedule.length; k++) {
-                    if (k < oldInsts.length && oldInsts[k].payments && oldInsts[k].payments.length > 0) {
-                        schedule[k].paid = oldInsts[k].paid;
-                        schedule[k].status = oldInsts[k].status;
-                        schedule[k].payments = oldInsts[k].payments;
-                        var totPaid = 0;
-                        for (var p = 0; p < schedule[k].payments.length; p++) totPaid += safeNum(schedule[k].payments[p].amount);
-                        schedule[k].paid = totPaid;
-                        if (totPaid >= schedule[k].amount) schedule[k].status = 'paid';
-                        else if (totPaid > 0) schedule[k].status = 'partial';
+                    if (k < oldInsts.length) {
+                        schedule[k].id = oldInsts[k].id;
+                        if (oldInsts[k].payments && oldInsts[k].payments.length > 0) {
+                            schedule[k].paid = oldInsts[k].paid;
+                            schedule[k].status = oldInsts[k].status;
+                            schedule[k].payments = oldInsts[k].payments;
+                            var totPaid = 0;
+                            for (var p = 0; p < schedule[k].payments.length; p++) totPaid += safeNum(schedule[k].payments[p].amount);
+                            schedule[k].paid = totPaid;
+                            if (totPaid >= schedule[k].amount) schedule[k].status = 'paid';
+                            else if (totPaid > 0) schedule[k].status = 'partial';
+                        }
                     }
                 }
                 contracts[i].installments = schedule;
@@ -4137,9 +4140,13 @@ function submitInstallmentPayment(e) {
     if (amount > remaining) { toast('قيمة الدفعة أكبر من المبلغ المتبقي', 'error'); return; }
     var paymentObj = { date: String(date), amount: amount, employee: String(employee), notes: String(notes) };
     var leftover = amount;
-    if (Array.isArray(c.installments)) {
-        for (var m = 0; m < c.installments.length && leftover > 0; m++) {
-            var inst = c.installments[m];
+    var instArr = Array.isArray(c.installments) ? c.installments : [];
+    var startIdx = parseInt(document.getElementById('instPayIdx').value, 10);
+    if (!(startIdx >= 0 && startIdx < instArr.length)) startIdx = 0;
+    if (instArr.length > 0) {
+        for (var step = 0; step < instArr.length && leftover > 0; step++) {
+            var m = (startIdx + step) % instArr.length;
+            var inst = instArr[m];
             if (inst.status === 'paid' || inst.status === 'cancelled') continue;
             var instRem = Math.max(0, safeNum(inst.amount) - safeNum(inst.paid));
             var portion = Math.min(leftover, instRem);

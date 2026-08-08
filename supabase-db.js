@@ -597,26 +597,27 @@ function sbSaveAll() {
                 }
             }
 
-            /* 8) أقساط العقود + دفعاتها */
+            /* 8) أقساط العقود + دفعاتها
+               الأقساط الجديدة (بلا معرف محلي) تُدرج دون id ليولّدها الخادم (bigserial)،
+               ثم تُربط المعرفات الحقيقية الصادرة من الخادم بالأقساط في الذاكرة،
+               ثم تُبنى دفعات الأقساط بالمعرفات الحقيقية. */
             var instRows = [];
-            var instPayRows = [];
             for (var i2 = 0; i2 < db.installmentContracts.length; i2++) {
                 var con = db.installmentContracts[i2];
-                if (Array.isArray(con.installments)) {
-                    for (var ii = 0; ii < con.installments.length; ii++) {
-                        var inst = con.installments[ii];
-                        instRows.push({ id: _sbn(inst.id), contract_id: con.id, number: _sbn(inst.number), due_date: inst.dueDate || null, amount: _sbn(inst.amount), paid: _sbn(inst.paid), status: inst.status || 'unpaid' });
-                        if (Array.isArray(inst.payments)) {
-                            for (var ip = 0; ip < inst.payments.length; ip++) {
-                                instPayRows.push({ contract_id: con.id, installment_id: _sbn(inst.id), date: inst.payments[ip].date, amount: _sbn(inst.payments[ip].amount), employee: inst.payments[ip].employee || '', notes: inst.payments[ip].notes || '' });
-                            }
-                        }
-                    }
-                }
-                if (Array.isArray(con.payments)) {
-                    for (var cp = 0; cp < con.payments.length; cp++) {
-                        instPayRows.push({ contract_id: con.id, installment_id: null, date: con.payments[cp].date, amount: _sbn(con.payments[cp].amount), employee: con.payments[cp].employee || '', notes: con.payments[cp].notes || '' });
-                    }
+                if (!Array.isArray(con.installments)) continue;
+                for (var ii = 0; ii < con.installments.length; ii++) {
+                    var inst = con.installments[ii];
+                    var row = {
+                        contract_id: con.id,
+                        number: _sbn(inst.number),
+                        due_date: inst.dueDate || null,
+                        amount: _sbn(inst.amount),
+                        paid: _sbn(inst.paid),
+                        status: inst.status || 'unpaid'
+                    };
+                    var instId = _sbn(inst.id);
+                    if (instId > 0) row.id = instId;
+                    instRows.push(row);
                 }
             }
 
@@ -648,6 +649,42 @@ function sbSaveAll() {
                 })
                 .then(function(r) {
                     if (r && r.error) throw r.error;
+                    /* ربط المعرفات الصادرة من الخادم بالأقساط في الذاكرة */
+                    if (r && Array.isArray(r.data) && r.data.length) {
+                        var idMap = {};
+                        for (var bi = 0; bi < r.data.length; bi++) {
+                            var row2 = r.data[bi];
+                            idMap[String(row2.contract_id) + ':' + _sbn(row2.number)] = _sbn(row2.id);
+                        }
+                        for (var ci = 0; ci < db.installmentContracts.length; ci++) {
+                            var con2 = db.installmentContracts[ci];
+                            if (!Array.isArray(con2.installments)) continue;
+                            for (var cj = 0; cj < con2.installments.length; cj++) {
+                                var inst2 = con2.installments[cj];
+                                var realId = idMap[String(con2.id) + ':' + _sbn(inst2.number)];
+                                if (realId) inst2.id = realId;
+                            }
+                        }
+                    }
+                    /* بناء دفعات الأقساط بالمعرفات الحقيقية بعد معرفتها */
+                    var instPayRows = [];
+                    for (var i3 = 0; i3 < db.installmentContracts.length; i3++) {
+                        var con3 = db.installmentContracts[i3];
+                        if (Array.isArray(con3.installments)) {
+                            for (var i4 = 0; i4 < con3.installments.length; i4++) {
+                                var inst3 = con3.installments[i4];
+                                if (!Array.isArray(inst3.payments)) continue;
+                                for (var i5 = 0; i5 < inst3.payments.length; i5++) {
+                                    instPayRows.push({ contract_id: con3.id, installment_id: _sbn(inst3.id), date: inst3.payments[i5].date, amount: _sbn(inst3.payments[i5].amount), employee: inst3.payments[i5].employee || '', notes: inst3.payments[i5].notes || '' });
+                                }
+                            }
+                        }
+                        if (Array.isArray(con3.payments)) {
+                            for (var i6 = 0; i6 < con3.payments.length; i6++) {
+                                instPayRows.push({ contract_id: con3.id, installment_id: null, date: con3.payments[i6].date, amount: _sbn(con3.payments[i6].amount), employee: con3.payments[i6].employee || '', notes: con3.payments[i6].notes || '' });
+                            }
+                        }
+                    }
                     if (instPayRows.length) {
                         return client.from('installment_payments').insert(instPayRows);
                     }
