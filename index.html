@@ -436,6 +436,9 @@
                     <h2><i data-lucide="wallet" style="width:24px;height:24px;vertical-align:middle"></i> المصاريف</h2>
                     <p>إدارة ومتابعة مصاريف الشركة</p>
                 </div>
+                <div>
+                    <button class="btn btn-primary" onclick="openExpenseDialog()">+ إضافة مصروف</button>
+                </div>
             </div>
 
             <!-- بطاقات إحصائيات المصاريف -->
@@ -482,14 +485,6 @@
                         <span class="kpi-value" id="expOneTimeCount">0</span>
                     </div>
                 </div>
-            </div>
-
-            <!-- أزرار الإجراءات -->
-            <div class="quick-actions" style="margin-bottom:20px">
-                <button class="qa-btn qa-red" onclick="openExpenseDialog()">
-                    <span class="qa-icon"><i data-lucide="plus"></i></span>
-                    <span class="qa-text">إضافة مصروف</span>
-                </button>
             </div>
 
             <!-- شريط البحث -->
@@ -658,6 +653,10 @@
                     <h2><i data-lucide="users" style="width:24px;height:24px;vertical-align:middle"></i> العملاء</h2>
                     <p>إدارة بيانات العملاء</p>
                 </div>
+                <div>
+                    <button class="btn btn-primary" onclick="openClientDialog()">+ إضافة عميل</button>
+                    <button class="btn btn-secondary" onclick="exportClientsExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                </div>
             </div>
 
             <!-- بطاقات إحصائيات العملاء -->
@@ -690,15 +689,6 @@
                         <span class="kpi-value" id="clientReceivables">0</span>
                     </div>
                 </div>
-            </div>
-
-            <!-- زر إضافة -->
-            <div class="quick-actions" style="margin-bottom:20px">
-                <button class="qa-btn qa-blue" onclick="openClientDialog()">
-                    <span class="qa-icon"><i data-lucide="plus"></i></span>
-                    <span class="qa-text">إضافة عميل</span>
-                </button>
-                <button class="btn btn-secondary btn-sm" onclick="exportClientsExcel()" style="margin-top:8px"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
             </div>
 
             <!-- جدول العملاء -->
@@ -736,6 +726,9 @@
                         <p id="detailClientSub">تفاصيل حساب العميل</p>
                     </div>
                 </div>
+                <div>
+                    <button class="btn btn-primary" onclick="openServiceDialog()">+ إضافة خدمة</button>
+                </div>
             </div>
 
             <!-- معلومات العميل -->
@@ -745,14 +738,6 @@
 
             <!-- KPIs -->
             <div class="kpi-grid" id="clientDetailKpis"></div>
-
-            <!-- أزرار الإضافة -->
-            <div class="quick-actions" style="margin-bottom:20px">
-                <button class="qa-btn qa-blue" onclick="openServiceDialog()">
-                    <span class="qa-icon"><i data-lucide="plus"></i></span>
-                    <span class="qa-text">إضافة خدمة</span>
-                </button>
-            </div>
 
             <!-- جدول التذاكر -->
             <div class="panel table-panel">
@@ -898,10 +883,10 @@
                 </div>
             </div>
 
-            <div class="panel" id="manualDebtEmpty" style="text-align:center;padding:40px;color:var(--muted)">
-                <div style="margin-bottom:12px"><i data-lucide="hand-coins" style="width:48px;height:48px"></i></div>
-                <p style="font-size:16px;font-weight:600">لا توجد ديون حالياً</p>
-                <p style="font-size:13px">أضف ديناً يدوياً أو يتم إضافة ديون التذاكر تلقائياً</p>
+            <div class="panel empty-msg" id="manualDebtEmpty">
+                <div class="empty-icon"><i data-lucide="hand-coins"></i></div>
+                <p>لا توجد ديون حالياً</p>
+                <small>أضف ديناً يدوياً أو يتم إضافة ديون التذاكر تلقائياً</small>
             </div>
 
             <div class="panel table-wrap" style="display:none" id="manualDebtTableWrap">
@@ -1013,10 +998,10 @@
                 </div>
             </div>
 
-            <div class="panel" id="instEmpty" style="text-align:center;padding:40px;color:var(--muted)">
-                <div style="margin-bottom:12px"><i data-lucide="calendar-range" style="width:48px;height:48px"></i></div>
-                <p style="font-size:16px;font-weight:600">لا توجد عقود أقساط حالياً</p>
-                <p style="font-size:13px">أضف عقد قسط جديد للبدء في إدارة الأقساط</p>
+            <div class="panel empty-msg" id="instEmpty">
+                <div class="empty-icon"><i data-lucide="calendar-range"></i></div>
+                <p>لا توجد عقود أقساط حالياً</p>
+                <small>أضف عقد قسط جديد للبدء في إدارة الأقساط</small>
             </div>
 
             <div class="panel table-wrap" style="display:none" id="instTableWrap">
@@ -1053,10 +1038,10 @@
                 </div>
             </div>
 
-            <div class="panel" id="trashEmpty" style="text-align:center;padding:40px;color:var(--muted)">
-                <div style="margin-bottom:12px"><i data-lucide="trash-2" style="width:48px;height:48px"></i></div>
-                <p style="font-size:16px;font-weight:600">سلة المحذوفات فارغة</p>
-                <p style="font-size:13px">السجلات المحذوفة ستظهر هنا</p>
+            <div class="panel empty-msg" id="trashEmpty">
+                <div class="empty-icon"><i data-lucide="trash-2"></i></div>
+                <p>سلة المحذوفات فارغة</p>
+                <small>السجلات المحذوفة ستظهر هنا</small>
             </div>
 
             <div class="panel table-wrap" style="display:none" id="trashTableWrap">
@@ -1165,15 +1150,18 @@
             </div>
 
             <!-- فلترة -->
-            <div class="toolbar">
-                <input type="text" class="field" id="activitySearch" placeholder="بحث بالموظف أو العملية..." oninput="renderActivityLog()">
-                <span class="toolbar-info" id="activityResults">0 سجل</span>
+            <div class="panel">
+                <div class="toolbar-row">
+                    <input type="text" class="field" id="activitySearch" placeholder="بحث بالموظف أو العملية..." oninput="renderActivityLog()">
+                    <div class="toolbar-spacer"></div>
+                    <span class="toolbar-info" id="activityResults">0 سجل</span>
+                </div>
             </div>
 
-            <div class="panel" id="activityEmpty" style="text-align:center;padding:40px;color:var(--muted)">
-                <div style="margin-bottom:12px"><i data-lucide="notebook-pen" style="width:48px;height:48px"></i></div>
-                <p style="font-size:16px;font-weight:600">سجل النشاط فارغ</p>
-                <p style="font-size:13px">ستظهر جميع العمليات هنا تلقائياً</p>
+            <div class="panel empty-msg" id="activityEmpty">
+                <div class="empty-icon"><i data-lucide="notebook-pen"></i></div>
+                <p>سجل النشاط فارغ</p>
+                <small>ستظهر جميع العمليات هنا تلقائياً</small>
             </div>
 
             <div class="panel table-wrap" style="display:none" id="activityTableWrap">

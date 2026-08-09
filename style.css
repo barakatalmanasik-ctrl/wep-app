@@ -41,6 +41,8 @@
     --text:        #1a1d23;
     --text-2:      #4a5568;
     --text-3:      #a0aec0;
+    --muted:       #94a3b8;
+    --light:       var(--surface-alt);
 
     /* ── الحدود والظلال ── */
     --border:      #e2e8f0;
@@ -119,6 +121,7 @@ html[data-theme="dark"] {
     --text:        #e6e9ee;
     --text-2:      #b4bcc8;
     --text-3:      #7c8590;
+    --muted:       #7c8590;
 
     --border:      #2b3138;
     --border-light:#232930;
@@ -130,8 +133,10 @@ html[data-theme="dark"] {
 }
 
 /* إصلاحات عناصر تستخدم ألواناً ثابتة فاتحة — تجعلها ملائمة للوضع الداكن */
+html[data-theme="dark"] .tbl tbody tr:hover,
 html[data-theme="dark"] .table tbody tr:hover,
 html[data-theme="dark"] .expense-row:hover { background: var(--surface-alt) !important; }
+html[data-theme="dark"] .live-calc { background: linear-gradient(135deg, var(--green-light), var(--emerald-light)); border-color: var(--green-light); }
 html[data-theme="dark"] .qa-menu { background: var(--surface); }
 html[data-theme="dark"] .qa-menu-item { color: var(--text-2); }
 html[data-theme="dark"] .qa-green:hover  { background: var(--green-light); }
@@ -693,15 +698,17 @@ svg.lucide { stroke-width: 2; }
     overflow: hidden;
 }
 
-.panel-head {
+.panel-head, .panel-header {
     padding: calc(var(--space-row) + 2px) 22px;
     border-bottom: 1px solid var(--border-light);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-.panel-head h3 {
+.panel-head h3, .panel-header h3 {
     font-size: 1rem;
     font-weight: 800;
 }
@@ -724,6 +731,13 @@ svg.lucide { stroke-width: 2; }
 }
 
 .toolbar-spacer { flex: 1; }
+
+.toolbar-info {
+    color: var(--text-3);
+    font-size: .8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
 
 .tab-group {
     display: flex;
@@ -815,7 +829,22 @@ svg.lucide { stroke-width: 2; }
     white-space: nowrap;
 }
 
-.btn-sm { height: calc(var(--btn-h) - 6px); padding: 0 16px; font-size: .78rem; }
+.btn-sm {
+    height: calc(var(--btn-h) - 6px);
+    padding: 0 16px;
+    font-size: .78rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all .2s var(--ease);
+}
 
 .btn-primary  { background: var(--brand); color: #fff; }
 .btn-primary:hover { background: var(--brand-dark); transform: translateY(-1px); box-shadow: var(--shadow-md); }
@@ -937,6 +966,20 @@ svg.lucide { stroke-width: 2; }
 }
 
 .empty-msg { text-align: center; padding: 56px 24px; }
+
+.empty-msg small {
+    display: block;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--text-3);
+    margin-top: 4px;
+}
+
+/* ── كثافة الجداول — تحترم إعداد كثافة الواجهة ── */
+html[data-density="comfortable"] .tbl th, html[data-density="comfortable"] .tbl td { padding: 16px 18px; }
+html[data-density="compact"]   .tbl th, html[data-density="compact"]   .tbl td { padding: 9px 12px; }
+html[data-density="comfortable"] .table th { padding: 15px 16px; }
+html[data-density="compact"]   .table th { padding: 9px 12px; }
 
 .empty-msg[style*="display"] + .table-scroll { display: none; }
 
@@ -1362,7 +1405,6 @@ svg.lucide { stroke-width: 2; }
 .text-red { color: var(--red); font-weight: 700; }
 .text-green { color: var(--green); font-weight: 700; }
 .text-orange { color: var(--amber); font-weight: 700; }
-.btn-sm { padding: 4px 12px; font-size: .8rem; border-radius: 6px; }
 
 /* ═══════════════════════════════════════
    الجدول — كلاس أساسي
@@ -1615,6 +1657,32 @@ svg.lucide { stroke-width: 2; }
 .debt-actions .btn-sm.btn-blue:hover { background: #1d4ed8; color: #fff; }
 .debt-actions .btn-sm.btn-edit:hover  { border-color: var(--blue); color: var(--blue); }
 .debt-actions .btn-sm.btn-del:hover   { border-color: var(--red);  color: var(--red); }
+
+/* ── الأزرار الصغيرة — نظام موحد لجميع الأقسام (تُستخدم في الجداول)
+   نفس مكوّن .debt-actions لكن كلاساته عامة ومشتركة ── */
+.btn-sm.btn-green { width: auto; padding: 0 14px; background: var(--green); color: #fff; border: none; font-size: .75rem; font-weight: 700; }
+.btn-sm.btn-green:hover { background: #15803d; color: #fff; }
+.btn-sm.btn-green-disabled { width: auto; padding: 0 14px; background: var(--green); color: #fff; border: none; font-size: .75rem; font-weight: 700; opacity: .55; cursor: not-allowed; pointer-events: none; }
+.btn-sm.btn-blue { width: auto; padding: 0 12px; background: var(--blue); color: #fff; border: none; font-size: .75rem; font-weight: 700; }
+.btn-sm.btn-blue:hover { background: #1d4ed8; color: #fff; }
+.btn-sm.btn-orange { width: auto; padding: 0 14px; background: var(--amber); color: #fff; border: none; font-size: .75rem; font-weight: 700; }
+.btn-sm.btn-orange:hover { background: #d97706; color: #fff; }
+.btn-sm.btn-amber { width: auto; padding: 0 14px; background: var(--amber); color: #fff; border: none; }
+.btn-sm.btn-amber:hover { background: #b45309; color: #fff; }
+.btn-sm.btn-danger { width: auto; padding: 0 12px; background: var(--red); color: #fff; border: none; font-size: .75rem; font-weight: 700; }
+.btn-sm.btn-danger:hover { background: #b91c1c; color: #fff; }
+.btn-sm.btn-primary { width: auto; padding: 0 14px; background: var(--brand); color: #fff; border: none; }
+.btn-sm.btn-primary:hover { background: var(--brand-dark); color: #fff; }
+.btn-sm.btn-edit,
+.btn-sm.btn-del {
+    width: 36px; height: 34px;
+    padding: 0;
+    display: inline-grid;
+    place-items: center;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text-2);
+}
 
 /* ═══════════════════════════════════════
    truncation — قص النصوص الطويلة
