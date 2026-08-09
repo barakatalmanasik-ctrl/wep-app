@@ -304,6 +304,10 @@ function sbSaveSettings(client) {
     var rows = [
         { key: 'currency', value: (db.settings && db.settings.currency) || 'IQD' },
         { key: 'language', value: (db.settings && db.settings.language) || 'ar' },
+        { key: 'ui_theme', value: (db.settings && db.settings.ui_theme) || 'light' },
+        { key: 'ui_font_size', value: (db.settings && db.settings.ui_font_size) || 'md' },
+        { key: 'ui_density', value: (db.settings && db.settings.ui_density) || 'default' },
+        { key: 'ui_layout', value: (db.settings && db.settings.ui_layout) || 'wide' },
         { key: 'created_at', value: (db.metadata && db.metadata.createdAt) || '' },
         { key: 'last_updated', value: (db.metadata && db.metadata.lastUpdated) || '' },
         { key: 'migrated_from', value: (db.metadata && db.metadata.migratedFrom) || '' }
@@ -352,6 +356,10 @@ function sbLoadAll() {
         return sbGetSettingsMap(client).then(function(settingsMap) {
             fresh.settings.currency = settingsMap['currency'] || 'IQD';
             fresh.settings.language = settingsMap['language'] || 'ar';
+            fresh.settings.ui_theme = settingsMap['ui_theme'] || 'light';
+            fresh.settings.ui_font_size = settingsMap['ui_font_size'] || 'md';
+            fresh.settings.ui_density = settingsMap['ui_density'] || 'default';
+            fresh.settings.ui_layout = settingsMap['ui_layout'] || 'wide';
             fresh.metadata.createdAt = settingsMap['created_at'] || '';
             fresh.metadata.lastUpdated = settingsMap['last_updated'] || '';
             fresh.metadata.migratedFrom = settingsMap['migrated_from'] || null;

@@ -13,7 +13,29 @@
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
     <link rel="stylesheet" href="libs/cairo.css">
-    <link rel="stylesheet" href="style.css?v=18">
+    <link rel="stylesheet" href="style.css?v=19">
+    <script>
+    /* تطبيق تفضيلات الواجهة (المظهر/الخط/الكثافة/التخطيط) قبل الرسم الأول — لمنع الوميض */
+    (function() {
+        var defaults = { theme: 'light', font: 'md', density: 'default', layout: 'wide' };
+        var prefs = defaults;
+        try {
+            var raw = localStorage.getItem('barakat_ui_prefs');
+            if (raw) {
+                var p = JSON.parse(raw);
+                for (var k in defaults) { if (p[k]) prefs[k] = p[k]; }
+            }
+        } catch (e) { /* تجاهل */ }
+        var theme = prefs.theme === 'system'
+            ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : prefs.theme;
+        var de = document.documentElement;
+        de.setAttribute('data-theme', theme);
+        de.setAttribute('data-font', prefs.font);
+        de.setAttribute('data-density', prefs.density);
+        de.setAttribute('data-layout', prefs.layout);
+    })();
+    </script>
     <script src="libs/lucide.min.js"></script>
 </head>
 <body>
@@ -97,6 +119,9 @@
             </button>
             <button class="nav-item" data-page="trash" onclick="showPage('trash')">
                 <i data-lucide="trash-2" class="nav-icon"></i><span>سلة المحذوفات</span>
+            </button>
+            <button class="nav-item" data-page="settings" onclick="showPage('settings')">
+                <i data-lucide="settings-2" class="nav-icon"></i><span>الإعدادات</span>
             </button>
         </nav>
         <div class="sidebar-footer">
@@ -1011,6 +1036,9 @@
                     <tbody id="instBody"></tbody>
                 </table>
             </div>
+
+            <!-- بطاقات عقود الأقساط — تُعرض على الجوال بدلاً من الجدول -->
+            <div class="inst-card-list" id="instCardList"></div>
         </section>
 
         <!-- ═══════ سلة المحذوفات ═══════ -->
@@ -1044,6 +1072,82 @@
                     </thead>
                     <tbody id="trashBody"></tbody>
                 </table>
+            </div>
+        </section>
+
+        <!-- ═══════ الإعدادات ═══════ -->
+        <section class="page" id="page-settings">
+            <div class="page-head">
+                <div>
+                    <h2><i data-lucide="settings-2" style="width:24px;height:24px;vertical-align:middle"></i> الإعدادات</h2>
+                    <p>تخصيص مظهر الواجهة وتجربة الاستخدام — يُحفظ على هذا الجهاز ويرتبط بحسابك عبر السحابة</p>
+                </div>
+            </div>
+
+            <div class="settings-grid">
+                <div class="panel settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-card-icon"><i data-lucide="palette"></i></div>
+                        <div>
+                            <h3>مظهر الواجهة</h3>
+                            <p>الوضع الفاتح أو الداكن أو تلقائياً حسب إعدادات الجهاز</p>
+                        </div>
+                    </div>
+                    <div class="seg-control" data-pref="theme">
+                        <button class="seg-option" data-val="light" onclick="setUIPref('theme','light')"><i data-lucide="sun"></i><span>فاتح</span></button>
+                        <button class="seg-option" data-val="dark" onclick="setUIPref('theme','dark')"><i data-lucide="moon"></i><span>داكن</span></button>
+                        <button class="seg-option" data-val="system" onclick="setUIPref('theme','system')"><i data-lucide="monitor-smartphone"></i><span>تلقائي</span></button>
+                    </div>
+                </div>
+
+                <div class="panel settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-card-icon"><i data-lucide="type"></i></div>
+                        <div>
+                            <h3>حجم الخط</h3>
+                            <p>تكبير أو تصغير حجم النصوص في جميع صفحات التطبيق</p>
+                        </div>
+                    </div>
+                    <div class="seg-control" data-pref="font">
+                        <button class="seg-option" data-val="sm" onclick="setUIPref('font','sm')"><span>أصغر</span></button>
+                        <button class="seg-option" data-val="md" onclick="setUIPref('font','md')"><span>متوسط</span></button>
+                        <button class="seg-option" data-val="lg" onclick="setUIPref('font','lg')"><span>أكبر</span></button>
+                        <button class="seg-option" data-val="xl" onclick="setUIPref('font','xl')"><span>أكبر جداً</span></button>
+                    </div>
+                </div>
+
+                <div class="panel settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-card-icon"><i data-lucide="sliders-horizontal"></i></div>
+                        <div>
+                            <h3>كثافة الواجهة</h3>
+                            <p>التحكم بالمسافات وحجم العناصر بين مريح ومضغوط</p>
+                        </div>
+                    </div>
+                    <div class="seg-control" data-pref="density">
+                        <button class="seg-option" data-val="comfortable" onclick="setUIPref('density','comfortable')"><span>مريح</span></button>
+                        <button class="seg-option" data-val="default" onclick="setUIPref('density','default')"><span>متوسط</span></button>
+                        <button class="seg-option" data-val="compact" onclick="setUIPref('density','compact')"><span>مضغوط</span></button>
+                    </div>
+                </div>
+
+                <div class="panel settings-card">
+                    <div class="settings-card-head">
+                        <div class="settings-card-icon"><i data-lucide="layout-dashboard"></i></div>
+                        <div>
+                            <h3>تخطيط الشاشة</h3>
+                            <p>عرض المحتوى بكامل الشاشة أو بمنطقة أضيق ومركّزة</p>
+                        </div>
+                    </div>
+                    <div class="seg-control" data-pref="layout">
+                        <button class="seg-option" data-val="wide" onclick="setUIPref('layout','wide')"><i data-lucide="maximize-2"></i><span>ممتد</span></button>
+                        <button class="seg-option" data-val="centered" onclick="setUIPref('layout','centered')"><i data-lucide="align-center-horizontal"></i><span>مركّز</span></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-reset">
+                <button class="btn btn-secondary" onclick="resetUIPrefs()"><i data-lucide="rotate-ccw" style="width:16px;height:16px"></i> استعادة الإعدادات الافتراضية</button>
             </div>
         </section>
 
@@ -1806,14 +1910,14 @@
         </div>
     </div>
 
-    <script src="config.js?v=18"></script>
+    <script src="config.js?v=19"></script>
     <script src="libs/xlsx.full.min.js"></script>
     <script src="libs/excel-styles.js"></script>
     <script src="libs/supabase.min.js"></script>
-    <script src="migration.js?v=18"></script>
-    <script src="supabase-client.js?v=18"></script>
-    <script src="supabase-db.js?v=18"></script>
-    <script src="script.js?v=18"></script>
+    <script src="migration.js?v=19"></script>
+    <script src="supabase-client.js?v=19"></script>
+    <script src="supabase-db.js?v=19"></script>
+    <script src="script.js?v=19"></script>
     <script>
     /* ═══════════════════════════════════════
        PWA — Service Worker + Install

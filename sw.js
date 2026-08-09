@@ -15,7 +15,7 @@ var DEV_MODE = false;
    الإعدادات
    ═══════════════════════════════════════════════════ */
 
-var CACHE_NAME = DEV_MODE ? 'barakat-dev-v18.0.0' : 'barakat-prod-v18.0.0';
+var CACHE_NAME = DEV_MODE ? 'barakat-dev-v19.0.0' : 'barakat-prod-v19.0.0';
 var CACHE_OLD_PREFIX = 'barakat-';
 var FONT_CACHE = 'barakat-fonts-v1';
 

@@ -437,6 +437,7 @@ function bootApp() {
         return sbLoadAll().then(function(loadedDb) {
             window.__SUPA_DB__ = loadedDb;
             db = loadedDb;
+            syncUIPrefsFromDB();
             return sbGetEmployeeSession();
         }).then(function(session2) {
             _employeeSession = session2;
@@ -472,6 +473,7 @@ function initApp() {
     setTodayDate('tktDate');
     setTodayDate('expDate');
     renderAll();
+    renderSettingsPage();
     initReportYear();
     handlePageParam();
     setInterval(function() {
@@ -522,7 +524,7 @@ function handlePageParam() {
     var params = new URLSearchParams(window.location.search);
     var page = params.get('page');
     if (!page) return;
-    var valid = ['home', 'statement', 'reports', 'expenses', 'clients', 'debts', 'installments', 'activity', 'backup', 'trash'];
+    var valid = ['home', 'statement', 'reports', 'expenses', 'clients', 'debts', 'installments', 'activity', 'backup', 'trash', 'settings'];
     if (valid.indexOf(page) !== -1) {
         showPage(page);
         if (page === 'expenses') openExpenseDialog();
@@ -587,6 +589,146 @@ function refreshApplicationState() {
     recalculateAll();
     saveDB();
     renderAll();
+}
+
+/* ═══════════════════════════════════════
+   إعدادات الواجهة (المظهر / الخط / الكثافة / التخطيط)
+   - تُحفظ محلياً (localStorage) لتطبيق فوري قبل الرسم
+   - وتُرتبط بالحساب عبر db.settings + app_settings (سحابياً)
+   ═══════════════════════════════════════ */
+var UI_PREFS_KEY = 'barakat_ui_prefs';
+var UI_PREFS_DEFAULTS = { theme: 'light', font: 'md', density: 'default', layout: 'wide' };
+var UI_PREFS_VALUES = {
+    theme: ['light', 'dark', 'system'],
+    font: ['sm', 'md', 'lg', 'xl'],
+    density: ['comfortable', 'default', 'compact'],
+    layout: ['wide', 'centered']
+};
+
+function getUIPrefs() {
+    var prefs = {};
+    for (var k in UI_PREFS_DEFAULTS) prefs[k] = UI_PREFS_DEFAULTS[k];
+    try {
+        var raw = localStorage.getItem(UI_PREFS_KEY);
+        if (raw) {
+            var p = JSON.parse(raw) || {};
+            for (var k2 in UI_PREFS_DEFAULTS) {
+                if (p[k2] !== undefined && p[k2] !== null) prefs[k2] = p[k2];
+            }
+        }
+    } catch (e) { /* تجاهل */ }
+    return validateUIPrefs(prefs);
+}
+
+function validateUIPrefs(prefs) {
+    var out = {};
+    for (var k in UI_PREFS_DEFAULTS) {
+        var v = prefs[k];
+        out[k] = (UI_PREFS_VALUES[k] && UI_PREFS_VALUES[k].indexOf(v) !== -1) ? v : UI_PREFS_DEFAULTS[k];
+    }
+    return out;
+}
+
+function saveUIPrefsLocal(prefs) {
+    try {
+        localStorage.setItem(UI_PREFS_KEY, JSON.stringify(prefs));
+    } catch (e) { /* تجاهل */ }
+}
+
+function applyUIPrefs(prefs) {
+    prefs = validateUIPrefs(prefs);
+    var de = document.documentElement;
+    de.setAttribute('data-font', prefs.font);
+    de.setAttribute('data-density', prefs.density);
+    de.setAttribute('data-layout', prefs.layout);
+    var resolved = prefs.theme === 'system'
+        ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : prefs.theme;
+    de.setAttribute('data-theme', resolved);
+    syncSystemThemeListener(prefs.theme);
+    renderSettingsPage();
+}
+
+function syncSystemThemeListener(theme) {
+    if (!window.matchMedia) return;
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (theme === 'system') {
+        if (!syncSystemThemeListener._bound) {
+            syncSystemThemeListener._bound = function() {
+                var cur = getUIPrefs();
+                if (cur.theme === 'system') {
+                    document.documentElement.setAttribute('data-theme', mq.matches ? 'dark' : 'light');
+                }
+            };
+            mq.addEventListener ? mq.addEventListener('change', syncSystemThemeListener._bound) : mq.addListener(syncSystemThemeListener._bound);
+        }
+    }
+}
+
+function setUIPref(key, value) {
+    var prefs = getUIPrefs();
+    if (!(key in UI_PREFS_DEFAULTS)) return;
+    prefs[key] = value;
+    prefs = validateUIPrefs(prefs);
+    saveUIPrefsLocal(prefs);
+    applyUIPrefs(prefs);
+    if (db) {
+        if (!db.settings) db.settings = {};
+        db.settings['ui_' + (key === 'theme' ? 'theme' : key === 'font' ? 'font_size' : key === 'density' ? 'density' : 'layout')] = value;
+        saveDB();
+    }
+    toast('تم تحديث الإعدادات', 'success');
+}
+
+function syncUIPrefsFromDB() {
+    if (!db || !db.settings) return;
+    var map = {
+        theme: db.settings.ui_theme,
+        font: db.settings.ui_font_size,
+        density: db.settings.ui_density,
+        layout: db.settings.ui_layout
+    };
+    var prefs = getUIPrefs();
+    var changed = false;
+    for (var k in map) {
+        if (map[k] && UI_PREFS_VALUES[k] && UI_PREFS_VALUES[k].indexOf(map[k]) !== -1 && prefs[k] !== map[k]) {
+            prefs[k] = map[k];
+            changed = true;
+        }
+    }
+    if (changed) {
+        saveUIPrefsLocal(prefs);
+        applyUIPrefs(prefs);
+    }
+}
+
+function renderSettingsPage() {
+    var prefs = getUIPrefs();
+    var controls = document.querySelectorAll('.seg-control[data-pref]');
+    for (var i = 0; i < controls.length; i++) {
+        var key = controls[i].getAttribute('data-pref');
+        var options = controls[i].querySelectorAll('.seg-option');
+        for (var j = 0; j < options.length; j++) {
+            var active = options[j].getAttribute('data-val') === prefs[key];
+            options[j].classList.toggle('active', active);
+        }
+    }
+}
+
+function resetUIPrefs() {
+    var prefs = {};
+    for (var k in UI_PREFS_DEFAULTS) prefs[k] = UI_PREFS_DEFAULTS[k];
+    saveUIPrefsLocal(prefs);
+    applyUIPrefs(prefs);
+    if (db) {
+        if (!db.settings) db.settings = {};
+        db.settings.ui_theme = 'light';
+        db.settings.ui_font_size = 'md';
+        db.settings.ui_density = 'default';
+        db.settings.ui_layout = 'wide';
+        saveDB();
+    }
+    toast('تم استعادة الإعدادات الافتراضية', 'success');
 }
 
 function getSortedTransactions() {
@@ -4262,6 +4404,7 @@ function showInstDetail(id) {
 
 function renderInstallments() {
     var body = document.getElementById('instBody');
+    var cardsEl = document.getElementById('instCardList');
     var empty = document.getElementById('instEmpty');
     var tableWrap = document.getElementById('instTableWrap');
     if (!body) return;
@@ -4308,20 +4451,28 @@ function renderInstallments() {
     }
     var resultsEl = document.getElementById('instResults');
     if (resultsEl) resultsEl.textContent = filtered.length + ' عقد';
-    if (filtered.length === 0) { body.innerHTML = ''; if (empty) empty.style.display = ''; if (tableWrap) tableWrap.style.display = 'none'; return; }
+    if (filtered.length === 0) { body.innerHTML = ''; if (cardsEl) cardsEl.innerHTML = ''; if (empty) empty.style.display = ''; if (tableWrap) tableWrap.style.display = 'none'; return; }
     if (empty) empty.style.display = 'none';
     if (tableWrap) tableWrap.style.display = '';
+    var stLabels2 = { completed: 'مكتمل', active: 'جاري', overdue: 'متأخر', partial: 'جزئي', unpaid: 'غير مدفوع' };
+    var stColors2 = { completed: 'debt-badge-paid', active: 'debt-badge-unpaid', overdue: 'debt-badge-overdue', partial: 'debt-badge-partial', unpaid: 'debt-badge-unpaid' };
     var html = '';
+    var cardsHtml = '';
     for (var k = 0; k < filtered.length; k++) {
         var item = filtered[k];
         var totalP = getInstTotalPaid(item);
         var rem = getInstRemaining(item);
         var st3 = getInstStatus(item);
         var paidCnt = getInstPaidCount(item);
-        var stLabels2 = { completed: 'مكتمل', active: 'جاري', overdue: 'متأخر', partial: 'جزئي', unpaid: 'غير مدفوع' };
-        var stColors2 = { completed: 'debt-badge-paid', active: 'debt-badge-unpaid', overdue: 'debt-badge-overdue', partial: 'debt-badge-partial', unpaid: 'debt-badge-unpaid' };
         var dn = item.name || '-';
         var tn = dn.length > 20 ? dn.substring(0, 20) + '…' : dn;
+        var firstUnpaid = -1;
+        if (rem > 0 && Array.isArray(item.installments)) {
+            for (var m = 0; m < item.installments.length; m++) {
+                if (item.installments[m].status !== 'paid' && item.installments[m].status !== 'cancelled') { firstUnpaid = m; break; }
+            }
+        }
+        /* ── صف الجدول (سطح المكتب) ── */
         html += '<tr>';
         html += '<td class="debt-col-name"><strong class="debt-truncate" title="' + dn + '" style="cursor:pointer;text-decoration:underline" onclick="showInstDetail(' + item.id + ')">' + tn + '</strong><span class="debt-phone">' + (item.phone || '') + '</span></td>';
         html += '<td class="debt-col-amount">' + fmt(item.total) + '</td>';
@@ -4334,20 +4485,45 @@ function renderInstallments() {
         html += '<button class="btn-sm btn-blue" onclick="showInstDetail(' + item.id + ')" title="فتح تفاصيل العقد والأقساط">تفاصيل</button>';
         html += '<button class="btn-sm btn-edit" onclick="openInstallmentEdit(' + item.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>';
         if (rem > 0) {
-            var firstUnpaid = -1;
-            if (Array.isArray(item.installments)) {
-                for (var m = 0; m < item.installments.length; m++) {
-                    if (item.installments[m].status !== 'paid' && item.installments[m].status !== 'cancelled') { firstUnpaid = m; break; }
-                }
-            }
             html += '<button class="btn-sm btn-green" onclick="recordInstPayment(' + item.id + ',' + firstUnpaid + ')">تسجيل دفعة</button>';
         } else {
             html += '<button class="btn-sm btn-green-disabled"><i data-lucide="circle-check-big"></i> تم السداد</button>';
         }
         html += '<button class="btn-sm btn-del" onclick="confirmDeleteInstallment(' + item.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>';
         html += '</div></td></tr>';
+
+        /* ── بطاقة الجوال ── */
+        var pct = safeNum(item.total) > 0 ? Math.min(100, Math.round(totalP / safeNum(item.total) * 100)) : 0;
+        var badgeCls = stColors2[st3] || 'debt-badge-unpaid';
+        var badgeTxt = stLabels2[st3] || st3;
+        cardsHtml += '<div class="inst-card">';
+        cardsHtml += '<div class="inst-card-top"><div class="inst-card-name">' + dn + '</div><span class="debt-badge ' + badgeCls + '">' + badgeTxt + '</span></div>';
+        if (item.phone) cardsHtml += '<div class="inst-card-phone">' + item.phone + '</div>';
+        if (item.description) cardsHtml += '<div class="inst-card-desc">' + item.description + '</div>';
+        cardsHtml += '<div class="inst-card-amounts">';
+        cardsHtml += '<div class="inst-card-amt"><span>المبلغ الكلي</span><strong>' + fmt(item.total) + '</strong></div>';
+        cardsHtml += '<div class="inst-card-amt"><span>المدفوع</span><strong class="inst-amt-paid">' + fmt(totalP) + '</strong></div>';
+        cardsHtml += '<div class="inst-card-amt"><span>المتبقي</span><strong class="inst-amt-remaining">' + fmt(rem) + '</strong></div>';
+        cardsHtml += '</div>';
+        cardsHtml += '<div class="inst-card-progress"><div class="inst-card-progress-track"><div class="inst-card-progress-fill" style="width:' + pct + '%"></div></div><span class="inst-card-progress-label">' + pct + '%</span></div>';
+        cardsHtml += '<div class="inst-card-meta">';
+        cardsHtml += '<span><i data-lucide="calendar-range" style="width:14px;height:14px"></i> الأقساط: ' + paidCnt + ' / ' + safeNum(item.count) + '</span>';
+        cardsHtml += '<span><i data-lucide="flag" style="width:14px;height:14px"></i> البداية: ' + (item.startDate || '—') + '</span>';
+        cardsHtml += '</div>';
+        cardsHtml += '<div class="inst-card-actions">';
+        if (rem > 0) {
+            cardsHtml += '<button class="btn btn-green inst-card-pay" onclick="recordInstPayment(' + item.id + ',' + firstUnpaid + ')"><i data-lucide="banknote" style="width:16px;height:16px"></i> تسجيل دفعة</button>';
+        } else {
+            cardsHtml += '<button class="btn btn-green inst-card-pay" onclick="showInstDetail(' + item.id + ')"><i data-lucide="circle-check-big" style="width:16px;height:16px"></i> تم السداد</button>';
+        }
+        cardsHtml += '<button class="btn btn-secondary inst-card-mini" onclick="showInstDetail(' + item.id + ')" title="تفاصيل"><i data-lucide="file-text"></i></button>';
+        cardsHtml += '<button class="btn btn-secondary inst-card-mini" onclick="openInstallmentEdit(' + item.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>';
+        cardsHtml += '<button class="btn btn-secondary inst-card-mini inst-card-del" onclick="confirmDeleteInstallment(' + item.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>';
+        cardsHtml += '</div>';
+        cardsHtml += '</div>';
     }
     body.innerHTML = html;
+    if (cardsEl) cardsEl.innerHTML = cardsHtml;
 }
 
 function exportInstallmentsExcel() {
