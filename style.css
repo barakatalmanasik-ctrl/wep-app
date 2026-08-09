@@ -1079,6 +1079,12 @@ html[data-density="compact"]   .table th { padding: 9px 12px; }
     border-top: 1px solid var(--border-light);
 }
 
+/* ── سحب النوافذ (وصل تسجيل الدفعات) على سطح المكتب فقط ── */
+@media (min-width: 769px) {
+    .modal-header { cursor: grab; touch-action: none; }
+    .modal-box.dragging { cursor: grabbing !important; user-select: none; animation: none !important; }
+}
+
 /* ═══════════════════════════════════════
    حساب مباشر
 ═══════════════════════════════════════ */

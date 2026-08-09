@@ -390,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
     bootApp();
     enhanceMobileTables();
     observeMobileTables();
+    initModalDrag();
 });
 
 function enhanceMobileTables() {
@@ -1948,6 +1949,11 @@ function showModal(id) {
 function closeAllModals() {
     document.querySelectorAll('.modal').forEach(function(m) { m.classList.remove('show'); });
     document.body.style.overflow = '';
+    document.querySelectorAll('.modal .modal-box').forEach(function(b) {
+        b.style.transform = '';
+        b.style.animation = '';
+        b.classList.remove('dragging');
+    });
 }
 
 function showConfirm(msg, cb) {
@@ -1962,6 +1968,43 @@ function closeConfirm(val) {
         confirmCallback(val);
         confirmCallback = null;
     }
+}
+
+/* ── سحب النوافذ المنبثقة (وصل تسجيل الدفعات) — سطح المكتب فقط ── */
+function initModalDrag() {
+    if (!window.PointerEvent) return;
+    var modals = document.querySelectorAll('.modal');
+    for (var i = 0; i < modals.length; i++) {
+        var header = modals[i].querySelector('.modal-header');
+        if (!header) continue;
+        header.addEventListener('pointerdown', function(e) {
+            if (window.innerWidth <= 768) return;
+            if (e.target.closest && e.target.closest('.modal-close')) return;
+            var modal = this.closest('.modal');
+            var box = modal.querySelector('.modal-box');
+            if (!modal.classList.contains('show') || !box) return;
+            startModalDrag(e, box);
+        });
+    }
+}
+
+function startModalDrag(e, box) {
+    var startX = e.clientX, startY = e.clientY;
+    var baseX = 0, baseY = 0;
+    var m = box.style.transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
+    if (m) { baseX = parseFloat(m[1]); baseY = parseFloat(m[2]); }
+    box.style.animation = 'none';
+    box.classList.add('dragging');
+    function onMove(ev) {
+        box.style.transform = 'translate(' + (baseX + (ev.clientX - startX)) + 'px, ' + (baseY + (ev.clientY - startY)) + 'px)';
+    }
+    function onUp() {
+        box.classList.remove('dragging');
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+    }
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
 }
 
 function toast(msg, type) {
