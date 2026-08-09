@@ -330,13 +330,27 @@ function sbGetEmployeeSession() {
     });
 }
 
-function sbUpdateProfileName(name) {
+/* تحديث اسم الموظف في سجل profiles الخاص به فقط.
+   السبب الجذري لخلط الأسماء: كان الكود يقرأ هوية المستخدم لحظة تنفيذ
+   getSession() (بعد انتظار غير متزامن)، فإذا دخل موظف آخر في هذه الأثناء
+   يُكتب اسم الأول على حساب الثاني. الحل: تثبيت user_id (auth.uid())
+   عند طلب التحديث (uid) والكتابة على هذا السجل فقط مهما تغيّرت الجلسة لاحقاً. */
+function sbUpdateProfileName(name, uid) {
+    var targetId = String(uid || '');
     return supabaseReady().then(function(client) {
-        return client.auth.getSession().then(function(res) {
-            var user = res && res.data && res.data.session && res.data.session.user;
-            if (!user) throw new Error('لا توجد جلسة نشطة');
+        var idPromise;
+        if (targetId) {
+            idPromise = Promise.resolve(targetId);
+        } else {
+            idPromise = client.auth.getSession().then(function(res) {
+                var user = res && res.data && res.data.session && res.data.session.user;
+                if (!user) throw new Error('لا توجد جلسة نشطة');
+                return String(user.id);
+            });
+        }
+        return idPromise.then(function(id) {
             return client.from('profiles').upsert(
-                [{ id: user.id, full_name: String(name || '').trim() || 'موظف', role: 'employee' }],
+                [{ id: id, full_name: String(name || '').trim() || 'موظف', role: 'employee' }],
                 { onConflict: 'id' }
             );
         });

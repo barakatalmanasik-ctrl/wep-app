@@ -79,11 +79,11 @@ function getEmployeeSession() {
     return _employeeSession;
 }
 
-function setEmployeeSession(name) {
+function setEmployeeSession(name, uid) {
     _employeeSession = { name: String(name), date: todayStr() };
     if (typeof sbUpdateProfileName === 'function') {
         Promise.resolve().then(function() {
-            return sbUpdateProfileName(name);
+            return sbUpdateProfileName(name, uid);
         }).catch(function() { /* تجاهل فشل الحفظ — الجلسة في الذاكرة */ });
     }
 }
@@ -151,7 +151,7 @@ function submitEmployeeLogin(e) {
     if (btn) btn.disabled = true;
     Promise.resolve()
         .then(function() { return supabaseSignIn(email, pass); })
-        .then(function() { return finishEmployeeLogin(name); })
+        .then(function(session) { return finishEmployeeLogin(name, session); })
         .catch(function(err) {
             console.error('Login failed:', err);
             if (typeof toast === 'function') {
@@ -163,27 +163,44 @@ function submitEmployeeLogin(e) {
         });
 }
 
-function finishEmployeeLogin(name) {
-    setEmployeeSession(name);
-    if (window.__SUPA_DB__ && db) {
-        hideLoginOverlay();
-        updateEmployeeDisplay(name);
-        initApp();
-        return Promise.resolve();
-    }
-    return sbLoadAll().then(function(loadedDb) {
-        window.__SUPA_DB__ = loadedDb;
-        db = loadedDb;
-        hideLoginOverlay();
-        updateEmployeeDisplay(name);
-        initApp();
-    }).catch(function(err) {
-        console.error('Supabase load failed after login:', err);
-        if (typeof toast === 'function') {
-            toast('فشل تحميل البيانات: ' + (err && err.message ? err.message : 'حاول مجدداً'), 'error');
-        }
-        throw err;
-    });
+/* إكمال الدخول:
+   - الهوية تُحدد من جلسة Supabase (auth.uid()) وليس من الاسم المكتوب.
+   - يُجلب الـ profile المرتبط بـ auth.uid() فقط (لا بحث بالاسم).
+   - إن وُجد اسم محفوظ يظهر هو، ويُحدَّث فقط إذا كتب المستخدم اسماً جديداً.
+   - كل تحديث للاسم يستهدف سجل المستخدم الحالي (uid) فقط. */
+function finishEmployeeLogin(name, session) {
+    var uid = (session && session.user) ? String(session.user.id) : '';
+    return Promise.resolve()
+        .then(function() {
+            if (typeof sbGetEmployeeSession === 'function') return sbGetEmployeeSession();
+            return null;
+        })
+        .then(function(profile) {
+            var savedName = profile ? String(profile.name || '').trim() : '';
+            var finalName;
+            if (savedName && (!name || name === savedName)) {
+                finalName = savedName;
+            } else {
+                finalName = name || savedName || 'موظف';
+            }
+            setEmployeeSession(finalName, uid);
+            return finalName;
+        })
+        .then(function(finalName) {
+            if (window.__SUPA_DB__ && db) {
+                hideLoginOverlay();
+                updateEmployeeDisplay(finalName);
+                initApp();
+                return;
+            }
+            return sbLoadAll().then(function(loadedDb) {
+                window.__SUPA_DB__ = loadedDb;
+                db = loadedDb;
+                hideLoginOverlay();
+                updateEmployeeDisplay(finalName);
+                initApp();
+            });
+        });
 }
 
 function switchEmployee() {
