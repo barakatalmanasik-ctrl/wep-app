@@ -4208,6 +4208,9 @@ function showInstDetail(id) {
     html += '<div class="detail-info-card" style="flex:1;min-width:100px"><span class="info-label">المتأخرة</span><span class="info-value" style="color:#C62828">' + overdueCount + '</span></div>';
     html += '</div>';
     if (Array.isArray(c.installments) && c.installments.length > 0) {
+        /* عرض الأقساط دائمًا بترتيب رقم القسط تصاعديًا (number ASC) —
+           حالة القسط وتاريخ الاستحقاق لا تؤثران على ترتيب الصف */
+        c.installments.sort(function(a, b) { return safeNum(a.number) - safeNum(b.number); });
         html += '<h4 style="margin-bottom:8px"><i data-lucide="calendar-range" style="width:18px;height:18px;vertical-align:middle"></i> جدول الأقساط</h4>';
         html += '<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>';
         for (var j = 0; j < c.installments.length; j++) {

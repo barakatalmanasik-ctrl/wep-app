@@ -254,6 +254,12 @@ function sbSelectIn(client, table, col, ids) {
     return client.from(table).select('*').in(col, ids);
 }
 
+/* جلب أقساط العقود بترتيب رقم القسط تصاعديًا (number ASC) */
+function sbSelectInstallments(client, ids) {
+    if (!ids.length) return Promise.resolve([]);
+    return client.from('installments').select('*').in('contract_id', ids).order('number', { ascending: true });
+}
+
 function sbUpsertRows(client, table, rows, onConflict) {
     if (!rows.length) return Promise.resolve();
     return client.from(table).upsert(rows, { onConflict: onConflict || 'id' });
@@ -395,7 +401,7 @@ function sbLoadAll() {
                     sbSelectIn(client, 'expense_monthly_records', 'expense_id', expIds),
                     sbSelectIn(client, 'client_services', 'client_id', clientIds),
                     sbSelectIn(client, 'manual_debt_payments', 'manual_debt_id', mdIds),
-                    sbSelectIn(client, 'installments', 'contract_id', instIds),
+                    sbSelectInstallments(client, instIds),
                     sbSelectIn(client, 'installment_payments', 'contract_id', instIds)
                 ]).then(function(childResults) {
                     var debtPays = childResults[0].data || [];
@@ -480,7 +486,7 @@ function attachInstallmentChildren(contracts, installs, pays) {
     for (var i = 0; i < installs.length; i++) {
         var cid = installs[i].contract_id;
         if (!byContract[cid]) byContract[cid] = [];
-        byContract[cid].push({ id: installs[i].id, number: installs[i].number, dueDate: installs[i].due_date, amount: _sbn(installs[i].amount), paid: _sbn(installs[i].paid), status: installs[i].status, payments: [] });
+        byContract[cid].push({ id: installs[i].id, number: _sbn(installs[i].number), dueDate: installs[i].due_date, amount: _sbn(installs[i].amount), paid: _sbn(installs[i].paid), status: installs[i].status, payments: [] });
     }
     var instById = {};
     for (var j = 0; j < installs.length; j++) {
@@ -489,6 +495,9 @@ function attachInstallmentChildren(contracts, installs, pays) {
     for (var c = 0; c < contracts.length; c++) {
         var list = byContract[contracts[c].id];
         if (list) {
+            /* الترتيب الرسمي للأقساط هو رقم القسط (number) — دائمًا تصاعديًا،
+               ولا يتأثر بحالة القسط ولا بتاريخ الاستحقاق ولا بترتيب الصفوف القادمة من الخادم. */
+            list.sort(function(a, b) { return _sbn(a.number) - _sbn(b.number); });
             contracts[c].installments = list;
             for (var k = 0; k < list.length; k++) {
                 if (instById[list[k].id]) instById[list[k].id].instIndex = k;
