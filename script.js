@@ -741,6 +741,12 @@ function getSortedTransactions() {
     });
 }
 
+/* ترتيب عرض كشف الحساب: الأحدث أولاً (يُنزل بعد العملية المضافة) */
+function getSortedTransactionsDesc() {
+    return getSortedTransactions().reverse();
+}
+
+
 function calcProfit(basePrice, salePrice) {
     return safeNum(salePrice) - safeNum(basePrice);
 }
@@ -1253,7 +1259,7 @@ function renderDashboard() {
 function renderTable() {
     var body = document.getElementById('tableBody');
     var empty = document.getElementById('emptyMsg');
-    var sorted = getSortedTransactions();
+    var sorted = getSortedTransactionsDesc();
 
     if (sorted.length === 0) {
         body.innerHTML = '';
@@ -1343,7 +1349,7 @@ function filterTable() {
     var text = document.getElementById('searchText').value.toLowerCase();
     var type = document.getElementById('filterType').value;
     var rows = document.querySelectorAll('#tableBody tr');
-    var sorted = getSortedTransactions();
+    var sorted = getSortedTransactionsDesc();
 
     rows.forEach(function(row, i) {
         var tx = sorted[i];
