@@ -4485,6 +4485,12 @@ function showInstDetail(id) {
 /* ═══════════════════════════════════════
    وصل سداد الأقساط — جمع كل دفعات العقد بترتيبها الزمني
    مع احتساب المتبقي بعد كل دفعة (مستقل لكل دفعة)
+
+   القاعدة: لا يُفترض أبداً أن الدفعة المعروضة هي الدفعة الأولى.
+   يُجمع سجل الدفعات الكامل للعقد/العميل (من الأقساط ومن دفعات العقد)،
+   يُرتب زمنياً، ثم يُستخرج ترتيب كل دفعة وكل المبالغ قبلياً —
+   فيتحدد المتبقي = إجمالي العقد − المقدمة − جميع الدفعات حتى هذه الدفعة،
+   وليس من قيمة القسط الحالي وحده.
    ═══════════════════════════════════════ */
 function collectInstPayments(c) {
     var list = [];
@@ -4525,19 +4531,39 @@ function collectInstPayments(c) {
         if (d) return d;
         return (a.pay.time || '').localeCompare(b.pay.time || '');
     });
-    /* المتبقي بعد كل دفعة = إجمالي المستحق للعقد − (المقدمة + كل المدفوعات حتى هذه الدفعة).
-       يُعتمد على الرصيد الرسمي الحالي للعقد (getInstRemaining) كمثبّت صحيح،
-       لأنه يشمل مبالغ مدفوعة قد لا تملك سجل دفعة (بيانات قديمة)،
-       ثم تُضاف إليه الدفعات اللاحقة لهذه الدفعة زمنياً. */
-    var currentRemaining = Math.max(0, safeNum(c.total) - getInstTotalPaid(c));
-    var after = [];
-    var suffix = 0;
-    for (var r = list.length - 1; r >= 0; r--) {
-        after[r] = suffix;
-        suffix += safeNum(list[r].pay.amount);
+    var total = safeNum(c.total);
+    var advance = safeNum(c.advance);
+    var insts = Array.isArray(c.installments) ? c.installments : [];
+    /* لكل دفعة: ترتيبها في السجل، عدد الدفعات السابقة، إجمالي المدفوع سابقاً،
+       مبلغها، إجمالي المدفوع حتى هذه الدفعة، المتبقي الحقيقي، وعدد الدفعات المتبقية —
+       وكلها كما كانت عليه في لحظة تسجيل الدفعة نفسها (وليس الحالة الحالية). */
+    var instMeta = [];
+    var instIndexByNumber = {};
+    for (var m = 0; m < insts.length; m++) {
+        if (safeNum(insts[m].amount) <= 0) continue;
+        instIndexByNumber[safeNum(insts[m].number)] = instMeta.length;
+        instMeta.push({ amount: safeNum(insts[m].amount) });
     }
+    var paidUpTo = [];
+    for (var u = 0; u < instMeta.length; u++) paidUpTo.push(0);
+    var recordsSum = 0;
     for (var q = 0; q < list.length; q++) {
-        list[q].remainingAfter = Math.max(0, currentRemaining + after[q]);
+        var pay = list[q].pay;
+        recordsSum += safeNum(pay.amount);
+        if (list[q].instNumber != null && instIndexByNumber[list[q].instNumber] !== undefined) {
+            paidUpTo[instIndexByNumber[list[q].instNumber]] += safeNum(pay.amount);
+        }
+        var remCount = 0;
+        for (var r = 0; r < instMeta.length; r++) {
+            if (paidUpTo[r] < instMeta[r].amount) remCount++;
+        }
+        list[q].seq = q + 1;
+        list[q].prevCount = q;
+        list[q].prevTotal = recordsSum - safeNum(pay.amount);
+        list[q].curAmount = safeNum(pay.amount);
+        list[q].cumTotal = advance + recordsSum;
+        list[q].remainingAfter = Math.max(0, total - advance - recordsSum);
+        list[q].remainingCount = remCount;
         list[q].index = q;
     }
     return list;
@@ -4575,6 +4601,7 @@ function buildReceiptHTML(c, entry) {
     } else {
         instRows += '<div class="rc-row"><span>النوع</span><b>دفعة مباشرة على العقد</b></div>';
     }
+    instRows += '<div class="rc-row"><span>ترتيب الدفعة في السجل</span><b>' + entry.seq + '</b></div>';
     var html = '<div class="receipt-sheet">';
     html += '<div class="rc-header">';
     html += '<img class="rc-logo" src="' + BARAKAT_LOGO_SRC + '" alt="' + co.name + '" onerror="this.style.display=\'none\'">';
@@ -4597,6 +4624,16 @@ function buildReceiptHTML(c, entry) {
     html += '<div class="rc-amt rc-amt-paid"><div class="rc-amt-label">المبلغ المدفوع</div><div class="rc-amt-value">' + fmt(safeNum(pay.amount)) + ' د.ع</div></div>';
     html += '<div class="rc-amt rc-amt-rem"><div class="rc-amt-label">المبلغ المتبقي الكامل بعد الدفعة</div><div class="rc-amt-value">' + fmt(entry.remainingAfter) + ' د.ع</div></div>';
     html += '</div>';
+    html += '<table class="rc-table"><thead><tr><th>بيان حساب المتبقي — حسب سجل الدفعات الفعلي</th><th></th></tr></thead><tbody>';
+    html += '<tr><td>رقم الدفعة الحالية (ترتيبها في السجل)</td><td>' + entry.seq + '</td></tr>';
+    html += '<tr><td>عدد الدفعات السابقة</td><td>' + entry.prevCount + '</td></tr>';
+    if (safeNum(c.advance) > 0) html += '<tr><td>المقدمة المدفوعة عند التعاقد</td><td>' + fmt(safeNum(c.advance)) + ' د.ع</td></tr>';
+    html += '<tr><td>إجمالي الدفعات السابقة</td><td>' + fmt(entry.prevTotal) + ' د.ع</td></tr>';
+    html += '<tr><td>مبلغ الدفعة الحالية</td><td>' + fmt(entry.curAmount) + ' د.ع</td></tr>';
+    html += '<tr><td>إجمالي المدفوع حتى هذه الدفعة</td><td>' + fmt(entry.cumTotal) + ' د.ع</td></tr>';
+    html += '<tr><td>المبلغ المتبقي الحقيقي</td><td>' + fmt(entry.remainingAfter) + ' د.ع</td></tr>';
+    html += '<tr><td>عدد الدفعات المتبقية</td><td>' + entry.remainingCount + '</td></tr>';
+    html += '</tbody></table>';
     html += '<table class="rc-table"><thead><tr><th>البند</th><th>التفاصيل</th></tr></thead><tbody>';
     html += '<tr><td>تاريخ تسجيل الدفعة</td><td>' + dt + '</td></tr>';
     html += '<tr><td>وقت تسجيل الدفعة</td><td>' + tm + '</td></tr>';
