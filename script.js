@@ -4525,10 +4525,19 @@ function collectInstPayments(c) {
         if (d) return d;
         return (a.pay.time || '').localeCompare(b.pay.time || '');
     });
-    var running = safeNum(c.advance);
+    /* المتبقي بعد كل دفعة = إجمالي المستحق للعقد − (المقدمة + كل المدفوعات حتى هذه الدفعة).
+       يُعتمد على الرصيد الرسمي الحالي للعقد (getInstRemaining) كمثبّت صحيح،
+       لأنه يشمل مبالغ مدفوعة قد لا تملك سجل دفعة (بيانات قديمة)،
+       ثم تُضاف إليه الدفعات اللاحقة لهذه الدفعة زمنياً. */
+    var currentRemaining = Math.max(0, safeNum(c.total) - getInstTotalPaid(c));
+    var after = [];
+    var suffix = 0;
+    for (var r = list.length - 1; r >= 0; r--) {
+        after[r] = suffix;
+        suffix += safeNum(list[r].pay.amount);
+    }
     for (var q = 0; q < list.length; q++) {
-        running += safeNum(list[q].pay.amount);
-        list[q].remainingAfter = Math.max(0, safeNum(c.total) - running);
+        list[q].remainingAfter = Math.max(0, currentRemaining + after[q]);
         list[q].index = q;
     }
     return list;
@@ -4544,6 +4553,8 @@ var BARAKAT_COMPANY = {
         { label: 'خدمة الزبائن', value: '07801733892' }
     ]
 };
+
+var BARAKAT_LOGO_SRC = 'icons/logo-barakat.png';
 
 function buildReceiptHTML(c, entry) {
     var pay = entry.pay || {};
@@ -4566,7 +4577,7 @@ function buildReceiptHTML(c, entry) {
     }
     var html = '<div class="receipt-sheet">';
     html += '<div class="rc-header">';
-    html += '<img class="rc-logo" src="icons/icon-192.png" alt="' + co.name + '">';
+    html += '<img class="rc-logo" src="' + BARAKAT_LOGO_SRC + '" alt="' + co.name + '" onerror="this.style.display=\'none\'">';
     html += '<div class="rc-company">';
     html += '<div class="rc-name">' + co.name + '</div>';
     if (contactBits.length) html += '<div class="rc-contact">' + contactBits.join('<br>') + '</div>';
