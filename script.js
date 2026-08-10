@@ -4467,7 +4467,7 @@ function showInstDetail(id) {
     var allPays = collectInstPayments(c);
     if (allPays.length > 0) {
         html += '<div style="margin-top:16px"><h4 style="margin-bottom:8px"><i data-lucide="history" style="width:18px;height:18px;vertical-align:middle"></i> سجل جميع الدفعات</h4>';
-        html += '<div style="overflow-x:auto"><table class="table"><thead><tr><th>التاريخ</th><th>الوقت</th><th>القسط</th><th>المبلغ</th><th>المتبقي بعدها</th><th>الموظف</th><th>ملاحظات</th><th>وصل</th></tr></thead><tbody>';
+        html += '<div style="overflow-x:auto"><table class="table"><thead><tr><th>التاريخ</th><th>الوقت</th><th>القسط</th><th>المبلغ</th><th>المتبقي الكامل</th><th>الموظف</th><th>ملاحظات</th><th>وصل</th></tr></thead><tbody>';
         for (var q = 0; q < allPays.length; q++) {
             var py = allPays[q];
             var instLabel = py.instNumber != null ? 'القسط ' + py.instNumber : 'عقد';
@@ -4536,22 +4536,22 @@ function collectInstPayments(c) {
 
 /* ── بيانات الشركة — تُعرض في رأس الوصل (عدّلها هنا حسب بيانات الشركة) ── */
 var BARAKAT_COMPANY = {
-    name: 'بركات المناسك',
-    slogan: 'نظام إدارة التذاكر والمناسك',
-    phone: '',
-    mobile: '',
-    address: '',
-    email: ''
+    name: 'شركة بركات المناسك للسفر والسياحة',
+    slogan: '',
+    contacts: [
+        { label: 'الحاج سالم اليساري', value: '07712441233' },
+        { label: 'أحمد اليساري', value: '07744641155' },
+        { label: 'خدمة الزبائن', value: '07801733892' }
+    ]
 };
 
 function buildReceiptHTML(c, entry) {
     var pay = entry.pay || {};
     var co = BARAKAT_COMPANY;
     var contactBits = [];
-    if (co.phone) contactBits.push('هاتف: ' + co.phone);
-    if (co.mobile) contactBits.push('موبايل: ' + co.mobile);
-    if (co.address) contactBits.push('العنوان: ' + co.address);
-    if (co.email) contactBits.push('بريد: ' + co.email);
+    for (var ci = 0; ci < (co.contacts || []).length; ci++) {
+        if (co.contacts[ci].value) contactBits.push(co.contacts[ci].label + ': ' + co.contacts[ci].value);
+    }
     var dt = pay.date || '—';
     var tm = pay.time || '—';
     var receiptNo = 'RCP-' + (pay.id || (String(dt).replace(/-/g, '') + '-' + (entry.index + 1)));
@@ -4569,8 +4569,7 @@ function buildReceiptHTML(c, entry) {
     html += '<img class="rc-logo" src="icons/icon-192.png" alt="' + co.name + '">';
     html += '<div class="rc-company">';
     html += '<div class="rc-name">' + co.name + '</div>';
-    html += '<div class="rc-slogan">' + (co.slogan || '') + '</div>';
-    if (contactBits.length) html += '<div class="rc-contact">' + contactBits.join(' &nbsp;•&nbsp; ') + '</div>';
+    if (contactBits.length) html += '<div class="rc-contact">' + contactBits.join('<br>') + '</div>';
     html += '</div></div>';
     html += '<div class="rc-divider"></div>';
     html += '<div class="rc-title">وصل سداد قسط</div>';
@@ -4585,9 +4584,11 @@ function buildReceiptHTML(c, entry) {
     html += '</div>';
     html += '<div class="rc-amount">';
     html += '<div class="rc-amt rc-amt-paid"><div class="rc-amt-label">المبلغ المدفوع</div><div class="rc-amt-value">' + fmt(safeNum(pay.amount)) + ' د.ع</div></div>';
-    html += '<div class="rc-amt rc-amt-rem"><div class="rc-amt-label">المتبقي بعد الدفعة</div><div class="rc-amt-value">' + fmt(entry.remainingAfter) + ' د.ع</div></div>';
+    html += '<div class="rc-amt rc-amt-rem"><div class="rc-amt-label">المبلغ المتبقي الكامل بعد الدفعة</div><div class="rc-amt-value">' + fmt(entry.remainingAfter) + ' د.ع</div></div>';
     html += '</div>';
     html += '<table class="rc-table"><thead><tr><th>البند</th><th>التفاصيل</th></tr></thead><tbody>';
+    html += '<tr><td>تاريخ تسجيل الدفعة</td><td>' + dt + '</td></tr>';
+    html += '<tr><td>وقت تسجيل الدفعة</td><td>' + tm + '</td></tr>';
     html += '<tr><td>مبلغ الدفعة</td><td>' + fmt(safeNum(pay.amount)) + ' د.ع</td></tr>';
     html += '<tr><td>الموظف المسؤول</td><td>' + (pay.employee || '—') + '</td></tr>';
     html += '<tr><td>القسط</td><td>' + instLabel + '</td></tr>';
