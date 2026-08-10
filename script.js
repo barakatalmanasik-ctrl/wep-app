@@ -4106,6 +4106,23 @@ function getInstPaidCount(c) {
     return count;
 }
 
+/* ── وقت الدفع + معرّف فريد لكل دفعة (لوصل مستقل لكل دفعة) ── */
+function nowTimeString() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function genPaymentId() {
+    return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function instTimeFromDate(dt) {
+    if (!dt) return '';
+    var d = new Date(dt);
+    if (isNaN(d.getTime())) return '';
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
 function getInstStatus(c) {
     var rem = getInstRemaining(c);
     if (rem <= 0) return 'completed';
@@ -4317,7 +4334,8 @@ function submitInstallmentPayment(e) {
     if (!c) return;
     var remaining = getInstRemaining(c);
     if (amount > remaining) { toast('قيمة الدفعة أكبر من المبلغ المتبقي', 'error'); return; }
-    var paymentObj = { date: String(date), amount: amount, employee: String(employee), notes: String(notes) };
+    var nowT = nowTimeString();
+    var paymentObj = { id: genPaymentId(), date: String(date), time: nowT, amount: amount, employee: String(employee), notes: String(notes) };
     var leftover = amount;
     var instArr = Array.isArray(c.installments) ? c.installments : [];
     var startIdx = parseInt(document.getElementById('instPayIdx').value, 10);
@@ -4330,7 +4348,7 @@ function submitInstallmentPayment(e) {
             var instRem = Math.max(0, safeNum(inst.amount) - safeNum(inst.paid));
             var portion = Math.min(leftover, instRem);
             if (portion <= 0) continue;
-            inst.payments.push({ date: String(date), amount: portion, employee: String(employee), notes: String(notes) });
+            inst.payments.push({ id: genPaymentId(), date: String(date), time: nowT, amount: portion, employee: String(employee), notes: String(notes) });
             inst.paid = safeNum(inst.paid) + portion;
             if (inst.paid >= inst.amount) inst.status = 'paid';
             else inst.status = 'partial';
@@ -4446,26 +4464,172 @@ function showInstDetail(id) {
         html += '<button class="btn btn-green" onclick="recordInstPayment(' + c.id + ',-1)">تسجيل دفعة على العقد</button>';
         html += '</div>';
     }
-    var allPays = [];
-    if (Array.isArray(c.installments)) {
-        for (var m = 0; m < c.installments.length; m++) {
-            var pays = c.installments[m].payments || [];
-            for (var n = 0; n < pays.length; n++) allPays.push(pays[n]);
-        }
-    }
+    var allPays = collectInstPayments(c);
     if (allPays.length > 0) {
-        allPays.sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
         html += '<div style="margin-top:16px"><h4 style="margin-bottom:8px"><i data-lucide="history" style="width:18px;height:18px;vertical-align:middle"></i> سجل جميع الدفعات</h4>';
-        html += '<table class="table"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>الموظف</th><th>ملاحظات</th></tr></thead><tbody>';
+        html += '<div style="overflow-x:auto"><table class="table"><thead><tr><th>التاريخ</th><th>الوقت</th><th>القسط</th><th>المبلغ</th><th>المتبقي بعدها</th><th>الموظف</th><th>ملاحظات</th><th>وصل</th></tr></thead><tbody>';
         for (var q = 0; q < allPays.length; q++) {
             var py = allPays[q];
-            html += '<tr><td>' + py.date + '</td><td>' + fmt(safeNum(py.amount)) + '</td><td>' + (py.employee || '—') + '</td><td>' + (py.notes || '—') + '</td></tr>';
+            var instLabel = py.instNumber != null ? 'القسط ' + py.instNumber : 'عقد';
+            html += '<tr><td>' + (py.pay.date || '—') + '</td><td>' + (py.pay.time || '—') + '</td><td>' + instLabel + '</td><td>' + fmt(safeNum(py.pay.amount)) + '</td><td>' + fmt(py.remainingAfter) + '</td><td>' + (py.pay.employee || '—') + '</td><td>' + (py.pay.notes || '—') + '</td>';
+            html += '<td style="white-space:nowrap"><button class="btn-sm btn-orange" onclick="openReceiptPreview(' + c.id + ',' + q + ')" title="فتح وطباعة وصل هذه الدفعة"><i data-lucide="receipt-text" style="width:14px;height:14px;vertical-align:middle"></i> طباعة وصل</button></td></tr>';
         }
-        html += '</tbody></table></div>';
+        html += '</tbody></table></div></div>';
     }
     document.getElementById('instDetailTitle').textContent = 'تفاصيل — ' + (c.name || '');
     document.getElementById('instDetailBody').innerHTML = html;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     showModal('instDetailModal');
+}
+
+/* ═══════════════════════════════════════
+   وصل سداد الأقساط — جمع كل دفعات العقد بترتيبها الزمني
+   مع احتساب المتبقي بعد كل دفعة (مستقل لكل دفعة)
+   ═══════════════════════════════════════ */
+function collectInstPayments(c) {
+    var list = [];
+    if (Array.isArray(c.installments)) {
+        for (var i = 0; i < c.installments.length; i++) {
+            var inst = c.installments[i];
+            if (!Array.isArray(inst.payments)) continue;
+            for (var j = 0; j < inst.payments.length; j++) {
+                list.push({
+                    pay: inst.payments[j],
+                    contractId: safeNum(c.id),
+                    clientName: c.name || '',
+                    phone: c.phone || '',
+                    description: c.description || '',
+                    instNumber: inst.number,
+                    instDueDate: inst.dueDate || '',
+                    instAmount: safeNum(inst.amount)
+                });
+            }
+        }
+    }
+    if (Array.isArray(c.payments)) {
+        for (var k = 0; k < c.payments.length; k++) {
+            list.push({
+                pay: c.payments[k],
+                contractId: safeNum(c.id),
+                clientName: c.name || '',
+                phone: c.phone || '',
+                description: c.description || '',
+                instNumber: null,
+                instDueDate: '',
+                instAmount: 0
+            });
+        }
+    }
+    list.sort(function(a, b) {
+        var d = (a.pay.date || '').localeCompare(b.pay.date || '');
+        if (d) return d;
+        return (a.pay.time || '').localeCompare(b.pay.time || '');
+    });
+    var running = safeNum(c.advance);
+    for (var q = 0; q < list.length; q++) {
+        running += safeNum(list[q].pay.amount);
+        list[q].remainingAfter = Math.max(0, safeNum(c.total) - running);
+        list[q].index = q;
+    }
+    return list;
+}
+
+/* ── بيانات الشركة — تُعرض في رأس الوصل (عدّلها هنا حسب بيانات الشركة) ── */
+var BARAKAT_COMPANY = {
+    name: 'بركات المناسك',
+    slogan: 'نظام إدارة التذاكر والمناسك',
+    phone: '',
+    mobile: '',
+    address: '',
+    email: ''
+};
+
+function buildReceiptHTML(c, entry) {
+    var pay = entry.pay || {};
+    var co = BARAKAT_COMPANY;
+    var contactBits = [];
+    if (co.phone) contactBits.push('هاتف: ' + co.phone);
+    if (co.mobile) contactBits.push('موبايل: ' + co.mobile);
+    if (co.address) contactBits.push('العنوان: ' + co.address);
+    if (co.email) contactBits.push('بريد: ' + co.email);
+    var dt = pay.date || '—';
+    var tm = pay.time || '—';
+    var receiptNo = 'RCP-' + (pay.id || (String(dt).replace(/-/g, '') + '-' + (entry.index + 1)));
+    var instLabel = entry.instNumber != null ? 'القسط رقم ' + entry.instNumber : 'دفعة على العقد';
+    var instRows = '';
+    if (entry.instNumber != null) {
+        instRows += '<div class="rc-row"><span>رقم القسط</span><b>' + entry.instNumber + '</b></div>';
+        if (entry.instDueDate) instRows += '<div class="rc-row"><span>تاريخ استحقاق القسط</span><b>' + entry.instDueDate + '</b></div>';
+        instRows += '<div class="rc-row"><span>قيمة القسط</span><b>' + fmt(entry.instAmount) + ' د.ع</b></div>';
+    } else {
+        instRows += '<div class="rc-row"><span>النوع</span><b>دفعة مباشرة على العقد</b></div>';
+    }
+    var html = '<div class="receipt-sheet">';
+    html += '<div class="rc-header">';
+    html += '<img class="rc-logo" src="icons/icon-192.png" alt="' + co.name + '">';
+    html += '<div class="rc-company">';
+    html += '<div class="rc-name">' + co.name + '</div>';
+    html += '<div class="rc-slogan">' + (co.slogan || '') + '</div>';
+    if (contactBits.length) html += '<div class="rc-contact">' + contactBits.join(' &nbsp;•&nbsp; ') + '</div>';
+    html += '</div></div>';
+    html += '<div class="rc-divider"></div>';
+    html += '<div class="rc-title">وصل سداد قسط</div>';
+    html += '<div class="rc-meta">رقم الوصل: ' + receiptNo + ' &nbsp;|&nbsp; تاريخ الدفع: ' + dt + ' &nbsp;|&nbsp; وقت الدفع: ' + tm + '</div>';
+    html += '<div class="rc-grid">';
+    html += '<div class="rc-box"><div class="rc-box-title">بيانات العميل</div>';
+    html += '<div class="rc-row"><span>اسم العميل</span><b>' + (entry.clientName || '—') + '</b></div>';
+    if (entry.phone) html += '<div class="rc-row"><span>الهاتف</span><b>' + entry.phone + '</b></div>';
+    if (entry.description) html += '<div class="rc-row"><span>الوصف</span><b>' + entry.description + '</b></div>';
+    html += '</div>';
+    html += '<div class="rc-box"><div class="rc-box-title">بيانات القسط</div>' + instRows + '</div>';
+    html += '</div>';
+    html += '<div class="rc-amount">';
+    html += '<div class="rc-amt rc-amt-paid"><div class="rc-amt-label">المبلغ المدفوع</div><div class="rc-amt-value">' + fmt(safeNum(pay.amount)) + ' د.ع</div></div>';
+    html += '<div class="rc-amt rc-amt-rem"><div class="rc-amt-label">المتبقي بعد الدفعة</div><div class="rc-amt-value">' + fmt(entry.remainingAfter) + ' د.ع</div></div>';
+    html += '</div>';
+    html += '<table class="rc-table"><thead><tr><th>البند</th><th>التفاصيل</th></tr></thead><tbody>';
+    html += '<tr><td>مبلغ الدفعة</td><td>' + fmt(safeNum(pay.amount)) + ' د.ع</td></tr>';
+    html += '<tr><td>الموظف المسؤول</td><td>' + (pay.employee || '—') + '</td></tr>';
+    html += '<tr><td>القسط</td><td>' + instLabel + '</td></tr>';
+    html += '<tr><td>ملاحظات</td><td>' + (pay.notes || '—') + '</td></tr>';
+    html += '</tbody></table>';
+    html += '<div class="rc-notes">بيان: ' + instLabel + ' — ' + (pay.notes || 'لا توجد ملاحظات') + '</div>';
+    html += '<div class="rc-sign">';
+    html += '<div class="rc-sign-item"><div class="rc-sign-line">توقيع الموظف</div></div>';
+    html += '<div class="rc-sign-item"><div class="rc-sign-line">توقيع العميل</div></div>';
+    html += '</div>';
+    html += '<div class="rc-footer">' + co.name + ' — شكراً لتعاملكم معنا</div>';
+    html += '</div>';
+    return html;
+}
+
+function openReceiptPreview(contractId, payIndex) {
+    var contracts = getInstallmentContracts();
+    var c = null;
+    for (var i = 0; i < contracts.length; i++) {
+        if (safeNum(contracts[i].id) === safeNum(contractId)) { c = contracts[i]; break; }
+    }
+    if (!c) { toast('تعذر العثور على العقد', 'error'); return; }
+    var list = collectInstPayments(c);
+    var entry = list[payIndex];
+    if (!entry) { toast('تعذر العثور على الدفعة', 'error'); return; }
+    var html = buildReceiptHTML(c, entry);
+    var bodyEl = document.getElementById('receiptBody');
+    var rootEl = document.getElementById('receiptPrintRoot');
+    if (bodyEl) bodyEl.innerHTML = html;
+    if (rootEl) rootEl.innerHTML = html;
+    document.body.classList.add('printing-receipt');
+    showModal('receiptModal');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeReceipt() {
+    document.body.classList.remove('printing-receipt');
+    closeAllModals();
+}
+
+function printReceiptNow() {
+    window.print();
 }
 
 function renderInstallments() {

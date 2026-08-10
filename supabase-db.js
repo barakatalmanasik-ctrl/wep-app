@@ -24,6 +24,13 @@ function _sbs(v) {
     return String(v);
 }
 
+function _instPayTime(createdAt) {
+    if (!createdAt) return '';
+    var d = new Date(createdAt);
+    if (isNaN(d.getTime())) return '';
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
 /* ═══════════════════════════════════════
    تحويل الصف (row) ← كائن JS
 ═══════════════════════════════════════ */
@@ -530,7 +537,14 @@ function attachInstallmentChildren(contracts, installs, pays) {
     for (var p = 0; p < pays.length; p++) {
         var pcid = pays[p].contract_id;
         if (!byContractPay[pcid]) byContractPay[pcid] = [];
-        var pay = { date: pays[p].date, amount: _sbn(pays[p].amount), employee: pays[p].employee || '', notes: pays[p].notes || '' };
+        var pay = {
+            id: (pays[p].id !== undefined && pays[p].id !== null) ? ('r' + pays[p].id) : undefined,
+            date: pays[p].date,
+            time: _instPayTime(pays[p].created_at),
+            amount: _sbn(pays[p].amount),
+            employee: pays[p].employee || '',
+            notes: pays[p].notes || ''
+        };
         var iid = pays[p].installment_id;
         if (iid !== null && iid !== undefined && instById[iid]) {
             var holder = byContract[instById[iid].contractId];
@@ -701,6 +715,21 @@ function sbSaveAll() {
                     }
                     /* بناء دفعات الأقساط بالمعرفات الحقيقية بعد معرفتها */
                     var instPayRows = [];
+                    var mkInstPayRow = function(cid, iid, py) {
+                        var row = {
+                            contract_id: cid,
+                            installment_id: iid,
+                            date: py.date,
+                            amount: _sbn(py.amount),
+                            employee: py.employee || '',
+                            notes: py.notes || ''
+                        };
+                        if (py.time) {
+                            var ts = new Date(String(py.date) + 'T' + String(py.time) + ':00');
+                            if (!isNaN(ts.getTime())) row.created_at = ts.toISOString();
+                        }
+                        return row;
+                    };
                     for (var i3 = 0; i3 < db.installmentContracts.length; i3++) {
                         var con3 = db.installmentContracts[i3];
                         if (Array.isArray(con3.installments)) {
@@ -708,13 +737,13 @@ function sbSaveAll() {
                                 var inst3 = con3.installments[i4];
                                 if (!Array.isArray(inst3.payments)) continue;
                                 for (var i5 = 0; i5 < inst3.payments.length; i5++) {
-                                    instPayRows.push({ contract_id: con3.id, installment_id: _sbn(inst3.id), date: inst3.payments[i5].date, amount: _sbn(inst3.payments[i5].amount), employee: inst3.payments[i5].employee || '', notes: inst3.payments[i5].notes || '' });
+                                    instPayRows.push(mkInstPayRow(con3.id, _sbn(inst3.id), inst3.payments[i5]));
                                 }
                             }
                         }
                         if (Array.isArray(con3.payments)) {
                             for (var i6 = 0; i6 < con3.payments.length; i6++) {
-                                instPayRows.push({ contract_id: con3.id, installment_id: null, date: con3.payments[i6].date, amount: _sbn(con3.payments[i6].amount), employee: con3.payments[i6].employee || '', notes: con3.payments[i6].notes || '' });
+                                instPayRows.push(mkInstPayRow(con3.id, null, con3.payments[i6]));
                             }
                         }
                     }

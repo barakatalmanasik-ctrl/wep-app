@@ -1881,6 +1881,25 @@
         </div>
     </div>
 
+    <!-- نافذة وصل سداد قسط (معاينة + طباعة) -->
+    <div class="modal" id="receiptModal">
+        <div class="modal-backdrop" onclick="closeReceipt()"></div>
+        <div class="modal-box" style="max-width:640px;max-height:92vh;overflow-y:auto">
+            <div class="modal-header modal-header-green">
+                <h3><i data-lucide="receipt-text" style="width:18px;height:18px;vertical-align:middle"></i> وصل سداد</h3>
+                <button class="modal-close" onclick="closeReceipt()">✕</button>
+            </div>
+            <div class="modal-body" id="receiptBody"></div>
+            <div class="modal-footer" style="justify-content:space-between">
+                <button class="btn btn-secondary" onclick="closeReceipt()">إغلاق</button>
+                <button class="btn btn-green" onclick="printReceiptNow()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة الوصل</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- منطقة طباعة الوصل — تُستخدم فقط عند الطباعة -->
+    <div id="receiptPrintRoot"></div>
+
     <!-- Confirm -->
     <div class="modal" id="confirmModal">
         <div class="modal-backdrop" onclick="closeConfirm(false)"></div>
