@@ -4190,14 +4190,65 @@ function calcInstPreview() {
     var total = safeNum(document.getElementById('instTotal').value);
     var advance = safeNum(document.getElementById('instAdvance').value);
     var count = safeNum(document.getElementById('instCount').value);
+    var startDate = (document.getElementById('instStartDate') || {}).value || '';
+    var period = (document.getElementById('instPeriod') || {}).value || 'monthly';
     var remaining = Math.max(0, total - advance);
     var el = document.getElementById('instValueDisplay');
+    if (total > 0 && advance >= total) {
+        el.value = '—';
+        renderInstSchedulePreview(-1, advance, count, startDate, period);
+        return;
+    }
     if (count > 0 && remaining > 0) {
         var base = Math.trunc(remaining / count);
         var leftover = remaining - (base * count);
         if (leftover > 0) el.value = fmt(base) + ' د.ع (آخر قسط: ' + fmt(base + leftover) + ' د.ع)';
         else el.value = fmt(base) + ' د.ع';
     } else { el.value = ''; }
+    renderInstSchedulePreview(total, advance, count, startDate, period);
+}
+
+/* معاينة حية لجدول الأقساط كاملاً داخل نافذة الإضافة/التعديل:
+   تُولّد نفس الجدول الذي سيُحفظ فعلياً (generateInstSchedule) قبل الحفظ. */
+function renderInstSchedulePreview(total, advance, count, startDate, period) {
+    var preview = document.getElementById('instSchedulePreview');
+    if (!preview) return;
+    if (total < 0) {
+        preview.style.display = '';
+        preview.innerHTML = '<div class="inst-preview-warn">الدفعة المقدمة يجب أن تكون أقل من المبلغ الكلي.</div>';
+        return;
+    }
+    if (!(count > 0) || total <= 0 || !startDate) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        return;
+    }
+    var remaining = Math.max(0, total - advance);
+    if (remaining <= 0) {
+        preview.style.display = 'none';
+        preview.innerHTML = '';
+        return;
+    }
+    var schedule = generateInstSchedule(total, advance, count, startDate, period);
+    if (!schedule.length) { preview.style.display = 'none'; preview.innerHTML = ''; return; }
+    var html = '<div class="inst-preview-summary">';
+    html += 'المتبقي بعد المقدّم: <strong>' + fmt(remaining) + ' د.ع</strong>';
+    html += ' · عدد الأقساط: <strong>' + schedule.length + '</strong>';
+    html += ' · قيمة القسط: <strong>' + fmt(schedule[0].amount) + ' د.ع</strong>';
+    html += '</div>';
+    html += '<div class="inst-preview-scroll"><table class="table"><thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>الحالة</th></tr></thead><tbody>';
+    var today = todayStr();
+    for (var i = 0; i < schedule.length; i++) {
+        var s = schedule[i];
+        var st = s.status;
+        if (st === 'unpaid' && s.dueDate && s.dueDate < today) st = 'overdue';
+        var stLabel = st === 'paid' ? 'مدفوع' : st === 'overdue' ? 'متأخر' : 'غير مدفوع';
+        var stColor = st === 'paid' ? '#1A6B4E' : st === 'overdue' ? '#C62828' : '#1565C0';
+        html += '<tr><td>' + s.number + '</td><td>' + s.dueDate + '</td><td>' + fmt(s.amount) + '</td><td style="color:' + stColor + ';font-weight:700">' + stLabel + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    preview.style.display = '';
+    preview.innerHTML = html;
 }
 
 function openInstallmentDialog() {
@@ -4213,6 +4264,7 @@ function openInstallmentDialog() {
     document.getElementById('instStartDate').value = todayStr();
     document.getElementById('instPeriod').value = 'monthly';
     document.getElementById('instNotes').value = '';
+    calcInstPreview();
     showModal('installmentModal');
 }
 

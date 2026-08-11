@@ -1792,17 +1792,17 @@
                 <div style="display:flex;gap:12px">
                     <div class="field-group" style="flex:1">
                         <label>المبلغ الكلي (دينار عراقي) *</label>
-                        <input type="number" class="field" id="instTotal" min="1" step="1" required placeholder="0" oninput="calcInstallmentPreview()">
+                        <input type="number" class="field" id="instTotal" min="1" step="1" required placeholder="0" oninput="calcInstPreview()">
                     </div>
                     <div class="field-group" style="flex:1">
                         <label>الدفعة المقدمة</label>
-                        <input type="number" class="field" id="instAdvance" min="0" step="1" value="0" placeholder="0" oninput="calcInstallmentPreview()">
+                        <input type="number" class="field" id="instAdvance" min="0" step="1" value="0" placeholder="0" oninput="calcInstPreview()">
                     </div>
                 </div>
                 <div style="display:flex;gap:12px">
                     <div class="field-group" style="flex:1">
                         <label>عدد الأقساط *</label>
-                        <input type="number" class="field" id="instCount" min="1" step="1" value="1" placeholder="1" oninput="calcInstallmentPreview()">
+                        <input type="number" class="field" id="instCount" min="1" step="1" value="1" placeholder="1" oninput="calcInstPreview()">
                     </div>
                     <div class="field-group" style="flex:1">
                         <label>قيمة القسط</label>
@@ -1811,11 +1811,11 @@
                 </div>
                 <div class="field-group">
                     <label>تاريخ بداية الأقساط *</label>
-                    <input type="date" class="field" id="instStartDate" required>
+                    <input type="date" class="field" id="instStartDate" required onchange="calcInstPreview()">
                 </div>
                 <div class="field-group">
                     <label>فترة السداد</label>
-                    <select class="field" id="instPeriod">
+                    <select class="field" id="instPeriod" onchange="calcInstPreview()">
                         <option value="weekly">أسبوعي</option>
                         <option value="biweekly">كل أسبوعين</option>
                         <option value="monthly" selected>شهري</option>
@@ -1823,6 +1823,10 @@
                         <option value="quarterly">كل ثلاثة أشهر</option>
                         <option value="custom">مخصص</option>
                     </select>
+                </div>
+                <div class="field-group">
+                    <label>معاينة جدول الأقساط</label>
+                    <div class="inst-schedule-preview" id="instSchedulePreview" style="display:none"></div>
                 </div>
                 <div class="field-group">
                     <label>ملاحظات</label>

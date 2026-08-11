@@ -1085,6 +1085,44 @@ html[data-density="compact"]   .table th { padding: 9px 12px; }
     .modal-box.dragging { cursor: grabbing !important; user-select: none; animation: none !important; }
 }
 
+/* ── معاينة جدول الأقساط داخل نافذة الإضافة/التعديل ── */
+.inst-schedule-preview {
+    border: 1px dashed var(--border, #d7dce4);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt, #f8fafc);
+    padding: 12px;
+}
+
+.inst-preview-summary {
+    font-size: .85rem;
+    color: var(--text-2);
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+}
+
+.inst-preview-summary strong { color: var(--text-1); }
+
+.inst-preview-scroll {
+    max-height: 220px;
+    overflow-y: auto;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light, #eef1f5);
+}
+
+.inst-preview-scroll .table td,
+.inst-preview-scroll .table th {
+    white-space: nowrap;
+}
+
+.inst-preview-warn {
+    color: var(--red, #c62828);
+    font-size: .85rem;
+    font-weight: 700;
+    padding: 4px 2px;
+}
+
 /* ═══════════════════════════════════════
    حساب مباشر
 ═══════════════════════════════════════ */
