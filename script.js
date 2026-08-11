@@ -1278,6 +1278,8 @@ function renderTable() {
     var body = document.getElementById('tableBody');
     var empty = document.getElementById('emptyMsg');
     var sorted = getSortedTransactionsDesc();
+    var resEl = document.getElementById('statementResults');
+    if (resEl) resEl.textContent = sorted.length + ' عملية';
 
     if (sorted.length === 0) {
         body.innerHTML = '';
@@ -1369,6 +1371,7 @@ function filterTable() {
     var rows = document.querySelectorAll('#tableBody tr');
     var sorted = getSortedTransactionsDesc();
 
+    var visible = 0;
     rows.forEach(function(row, i) {
         var tx = sorted[i];
         if (!tx) return;
@@ -1382,7 +1385,11 @@ function filterTable() {
             if (haystack.indexOf(text) === -1) show = false;
         }
         row.style.display = show ? '' : 'none';
+        if (show) visible++;
     });
+
+    var resEl = document.getElementById('statementResults');
+    if (resEl) resEl.textContent = visible + ' عملية';
 }
 
 /* ═══════════════════════════════════════
@@ -2243,6 +2250,9 @@ function renderExpenses() {
 
         if (matchSearch && matchStatus) filtered.push(fex);
     }
+
+    var resEl = document.getElementById('expResults');
+    if (resEl) resEl.textContent = filtered.length + ' مصروف';
 
     if (filtered.length === 0) {
         body.innerHTML = '';

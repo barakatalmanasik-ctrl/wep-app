@@ -158,7 +158,7 @@
         <section class="page active" id="page-home">
             <div class="page-head">
                 <div>
-                    <h2>الرئيسية</h2>
+                    <h2><i data-lucide="layout-dashboard" style="width:24px;height:24px;vertical-align:middle"></i> الرئيسية</h2>
                     <p>نظرة عامة على عمليات الوكالة</p>
                 </div>
             </div>
@@ -174,7 +174,7 @@
             </div>
 
             <!-- بطاقات الإحصائيات -->
-            <div class="kpi-grid">
+            <div class="debt-kpi-grid">
                 <div class="kpi kpi-green">
                     <div class="kpi-icon"><i data-lucide="trending-up"></i></div>
                     <div class="kpi-body">
@@ -296,21 +296,25 @@
         <section class="page" id="page-statement">
             <div class="page-head">
                 <div>
-                    <h2>كشف الحساب</h2>
+                    <h2><i data-lucide="receipt" style="width:24px;height:24px;vertical-align:middle"></i> كشف الحساب</h2>
                     <p>جميع العمليات المسجلة</p>
+                </div>
+                <div>
+                    <button class="btn btn-green" onclick="exportStatementExcel()"><i data-lucide="download" style="width:16px;height:16px"></i> Excel</button>
                 </div>
             </div>
 
-            <div class="panel toolbar">
-                <div class="toolbar-row">
-                    <input type="text" class="field" id="searchText"
+            <div class="panel">
+                <div class="debt-toolbar">
+                    <input type="text" class="field field-search" id="searchText"
                            placeholder="بحث في الملاحظات أو العميل..." oninput="filterTable()">
-                    <select class="field field-sm" id="filterType" onchange="filterTable()">
+                    <select class="field field-filter" id="filterType" onchange="filterTable()">
                         <option value="all">الكل</option>
                         <option value="تعزيز"> تعزيز</option>
                         <option value="بيع">بيع تذاكر</option>
                     </select>
-                    <button class="btn btn-secondary btn-sm" onclick="exportStatementExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                    <div class="toolbar-spacer"></div>
+                    <span class="debt-count" id="statementResults"></span>
                 </div>
             </div>
 
@@ -338,6 +342,7 @@
                 <div class="empty-msg" id="emptyMsg">
                     <div class="empty-icon"><i data-lucide="inbox"></i></div>
                     <p>لا توجد عمليات بعد</p>
+                    <small>سجّل تعزيزاً أو قطع تذكرة لتظهر العمليات هنا</small>
                 </div>
             </div>
         </section>
@@ -346,30 +351,32 @@
         <section class="page" id="page-reports">
             <div class="page-head">
                 <div>
-                    <h2>التقارير</h2>
+                    <h2><i data-lucide="chart-column" style="width:24px;height:24px;vertical-align:middle"></i> التقارير</h2>
                     <p>تحليلات وأرباح مفصلة</p>
+                </div>
+                <div>
+                    <button class="btn btn-green" onclick="exportReportExcel()"><i data-lucide="download" style="width:16px;height:16px"></i> Excel</button>
+                    <button class="btn btn-secondary" onclick="exportReportPrint()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
                 </div>
             </div>
 
             <!-- فلاتر التقرير -->
-            <div class="panel toolbar">
-                <div class="toolbar-row">
+            <div class="panel">
+                <div class="debt-toolbar">
                     <div class="tab-group" id="reportTabs">
                         <button class="tab active" data-mode="monthly" onclick="switchReportMode('monthly')">شهري</button>
                         <button class="tab" data-mode="daily" onclick="switchReportMode('daily')">يومي</button>
                         <button class="tab" data-mode="yearly" onclick="switchReportMode('yearly')">سنوي</button>
                     </div>
                     <div class="toolbar-spacer"></div>
-                    <select class="field field-sm" id="reportMonth" onchange="generateReport()" style="display:none"></select>
-                    <input type="date" class="field field-sm" id="reportDate" onchange="generateReport()" style="display:none">
-                    <select class="field field-sm" id="reportYear" onchange="generateReport()"></select>
-                    <button class="btn btn-primary btn-sm" onclick="exportReportExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
-                    <button class="btn btn-secondary btn-sm" onclick="exportReportPrint()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
+                    <select class="field field-filter" id="reportMonth" onchange="generateReport()" style="display:none"></select>
+                    <input type="date" class="field field-filter" id="reportDate" onchange="generateReport()" style="display:none">
+                    <select class="field field-filter" id="reportYear" onchange="generateReport()"></select>
                 </div>
             </div>
 
             <!-- ملخص التقرير -->
-            <div class="kpi-grid kpi-grid-3" id="reportKpis"></div>
+            <div class="debt-kpi-grid" id="reportKpis"></div>
 
             <!-- جدول التقرير -->
             <div class="panel table-panel">
@@ -402,10 +409,10 @@
                                     <option value="debtors">العملاء المدينون</option>
                                     <option value="settled">المسددون</option>
                                 </select>
-                                <button class="btn btn-secondary btn-sm" onclick="exportDebtClientsExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                                <button class="btn btn-green" onclick="exportDebtClientsExcel()"><i data-lucide="download" style="width:16px;height:16px"></i> Excel</button>
                             </div>
                         </div>
-                        <div class="kpi-grid" style="margin-bottom:12px">
+                        <div class="debt-kpi-grid" style="margin-bottom:12px">
                             <div class="kpi kpi-blue"><div class="kpi-body"><span class="kpi-label">عدد العملاء</span><span class="kpi-value" id="debtReportTotalClients">0</span></div></div>
                             <div class="kpi kpi-blue"><div class="kpi-body"><span class="kpi-label">إجمالي القيمة</span><span class="kpi-value" id="debtReportTotalValue">0 د.ع</span></div></div>
                             <div class="kpi kpi-green"><div class="kpi-body"><span class="kpi-label">إجمالي المدفوع</span><span class="kpi-value" id="debtReportTotalPaid">0 د.ع</span></div></div>
@@ -438,11 +445,13 @@
                 </div>
                 <div>
                     <button class="btn btn-primary" onclick="openExpenseDialog()">+ إضافة مصروف</button>
+                    <button class="btn btn-green" onclick="exportExpensesExcel()"><i data-lucide="download" style="width:16px;height:16px"></i> Excel</button>
+                    <button class="btn btn-secondary" onclick="printExpensesReport()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
                 </div>
             </div>
 
             <!-- بطاقات إحصائيات المصاريف -->
-            <div class="kpi-grid">
+            <div class="debt-kpi-grid">
                 <div class="kpi kpi-green">
                     <div class="kpi-icon"><i data-lucide="circle-check-big"></i></div>
                     <div class="kpi-body">
@@ -488,11 +497,11 @@
             </div>
 
             <!-- شريط البحث -->
-            <div class="panel toolbar">
-                <div class="toolbar-row">
-                    <input type="text" class="field" id="expSearchText"
+            <div class="panel">
+                <div class="debt-toolbar">
+                    <input type="text" class="field field-search" id="expSearchText"
                            placeholder="بحث بالاسم أو الوصف أو المبلغ..." oninput="filterExpenses()">
-                    <select class="field field-sm" id="expFilterStatus" onchange="filterExpenses()">
+                    <select class="field field-filter" id="expFilterStatus" onchange="filterExpenses()">
                         <option value="all">الكل</option>
                         <option value="paid">تم الدفع</option>
                         <option value="partial">مدفوع جزئياً</option>
@@ -500,8 +509,8 @@
                         <option value="recurring">شهري</option>
                         <option value="onetime">مرة واحدة</option>
                     </select>
-                    <button class="btn btn-secondary btn-sm" onclick="exportExpensesExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
-                    <button class="btn btn-secondary btn-sm" onclick="printExpensesReport()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
+                    <div class="toolbar-spacer"></div>
+                    <span class="debt-count" id="expResults"></span>
                 </div>
             </div>
 
@@ -529,6 +538,7 @@
                 <div class="empty-msg" id="expenseEmptyMsg">
                     <div class="empty-icon"><i data-lucide="inbox"></i></div>
                     <p>لا توجد مصاريف بعد</p>
+                    <small>أضف مصروفاً جديداً ليظهر هنا</small>
                 </div>
             </div>
         </section>
@@ -546,7 +556,7 @@
             </div>
 
             <!-- معلومات المصروف -->
-            <div class="kpi-grid">
+            <div class="debt-kpi-grid">
                 <div class="kpi kpi-blue">
                     <div class="kpi-icon"><i data-lucide="banknote"></i></div>
                     <div class="kpi-body">
@@ -655,12 +665,12 @@
                 </div>
                 <div>
                     <button class="btn btn-primary" onclick="openClientDialog()">+ إضافة عميل</button>
-                    <button class="btn btn-secondary" onclick="exportClientsExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                    <button class="btn btn-green" onclick="exportClientsExcel()"><i data-lucide="download" style="width:16px;height:16px"></i> Excel</button>
                 </div>
             </div>
 
             <!-- بطاقات إحصائيات العملاء -->
-            <div class="kpi-grid">
+            <div class="debt-kpi-grid">
                 <div class="kpi kpi-blue">
                     <div class="kpi-icon"><i data-lucide="users"></i></div>
                     <div class="kpi-body">
@@ -712,6 +722,7 @@
                 <div class="empty-msg" id="clientEmptyMsg">
                     <div class="empty-icon"><i data-lucide="users"></i></div>
                     <p>لا يوجد عملاء بعد</p>
+                    <small>أضف عميلاً جديداً ليظهر هنا</small>
                 </div>
             </div>
         </section>
@@ -737,7 +748,7 @@
             </div>
 
             <!-- KPIs -->
-            <div class="kpi-grid" id="clientDetailKpis"></div>
+            <div class="debt-kpi-grid" id="clientDetailKpis"></div>
 
             <!-- جدول التذاكر -->
             <div class="panel table-panel">
@@ -765,6 +776,7 @@
                 <div class="empty-msg" id="clientTicketEmptyMsg">
                     <div class="empty-icon"><i data-lucide="plane"></i></div>
                     <p>لا توجد تذاكر مسجلة لهذا العميل</p>
+                    <small>أضف خدمة أو تذكرة ليظهر سجل التذاكر هنا</small>
                 </div>
             </div>
 
@@ -789,6 +801,7 @@
                 <div class="empty-msg" id="serviceEmptyMsg">
                     <div class="empty-icon"><i data-lucide="inbox"></i></div>
                     <p>لا توجد خدمات بعد</p>
+                    <small>أضف خدمة جديدة لهذا العميل لتظهر هنا</small>
                 </div>
             </div>
 
@@ -798,7 +811,7 @@
         <section class="page" id="page-backup">
             <div class="page-head">
                 <div>
-                    <h2>النسخ الاحتياطي</h2>
+                    <h2><i data-lucide="archive" style="width:24px;height:24px;vertical-align:middle"></i> النسخ الاحتياطي</h2>
                     <p>تصدير واستيراد جميع بيانات النظام</p>
                 </div>
             </div>
@@ -1144,17 +1157,17 @@
                     <p>جميع العمليات المسجّلة بالموظف والوقت</p>
                 </div>
                 <div>
-                    <button class="btn btn-secondary" onclick="exportActivityExcel()"><i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i> Excel</button>
+                    <button class="btn btn-green" onclick="exportActivityExcel()"><i data-lucide="download" style="width:16px;height:16px"></i> Excel</button>
                     <button class="btn btn-secondary" onclick="printActivityLog()"><i data-lucide="printer" style="width:16px;height:16px"></i> طباعة</button>
                 </div>
             </div>
 
             <!-- فلترة -->
             <div class="panel">
-                <div class="toolbar-row">
-                    <input type="text" class="field" id="activitySearch" placeholder="بحث بالموظف أو العملية..." oninput="renderActivityLog()">
+                <div class="debt-toolbar">
+                    <input type="text" class="field field-search" id="activitySearch" placeholder="بحث بالموظف أو العملية..." oninput="renderActivityLog()">
                     <div class="toolbar-spacer"></div>
-                    <span class="toolbar-info" id="activityResults">0 سجل</span>
+                    <span class="debt-count" id="activityResults">0 سجل</span>
                 </div>
             </div>
 
