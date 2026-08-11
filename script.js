@@ -4081,10 +4081,25 @@ function generateInstSchedule(totalAmount, advance, count, startDate, period) {
     return schedule;
 }
 
+/* المدفوع الفعلي لكل قسط يُستخرج من سجل الدفعات المرتبط به (المصدر الموثوق)،
+   ويُستخدم inst.paid كمكمل فقط — فيُعالج أي تباين بين العمود المحفوظ والسجل الفعلي،
+   ولا يُحتسب القسط غير المدفوع ضمن المسددات أبداً. */
+function instRecordsSum(inst) {
+    var s = 0;
+    if (Array.isArray(inst.payments)) {
+        for (var j = 0; j < inst.payments.length; j++) s += safeNum(inst.payments[j].amount);
+    }
+    return s;
+}
+
+function instEffectivePaid(inst) {
+    return Math.max(safeNum(inst.paid), instRecordsSum(inst));
+}
+
 function getInstTotalPaid(c) {
     var total = safeNum(c.advance);
     if (Array.isArray(c.installments)) {
-        for (var i = 0; i < c.installments.length; i++) total += safeNum(c.installments[i].paid);
+        for (var i = 0; i < c.installments.length; i++) total += instEffectivePaid(c.installments[i]);
     }
     if (Array.isArray(c.payments)) {
         for (var j = 0; j < c.payments.length; j++) total += safeNum(c.payments[j].amount);
@@ -4100,7 +4115,8 @@ function getInstPaidCount(c) {
     var count = 0;
     if (Array.isArray(c.installments)) {
         for (var i = 0; i < c.installments.length; i++) {
-            if (c.installments[i].status === 'paid') count++;
+            var inst = c.installments[i];
+            if (safeNum(inst.amount) > 0 && instEffectivePaid(inst) >= safeNum(inst.amount)) count++;
         }
     }
     return count;
@@ -4344,12 +4360,14 @@ function submitInstallmentPayment(e) {
         for (var step = 0; step < instArr.length && leftover > 0; step++) {
             var m = (startIdx + step) % instArr.length;
             var inst = instArr[m];
-            if (inst.status === 'paid' || inst.status === 'cancelled') continue;
-            var instRem = Math.max(0, safeNum(inst.amount) - safeNum(inst.paid));
+            if (inst.status === 'cancelled') continue;
+            var effPaid = instEffectivePaid(inst);
+            if (effPaid >= safeNum(inst.amount)) continue;
+            var instRem = Math.max(0, safeNum(inst.amount) - effPaid);
             var portion = Math.min(leftover, instRem);
             if (portion <= 0) continue;
             inst.payments.push({ id: genPaymentId(), date: String(date), time: nowT, amount: portion, employee: String(employee), notes: String(notes) });
-            inst.paid = safeNum(inst.paid) + portion;
+            inst.paid = effPaid + portion;
             if (inst.paid >= inst.amount) inst.status = 'paid';
             else inst.status = 'partial';
             leftover -= portion;
@@ -4376,7 +4394,7 @@ function undoInstPayment(contractId, instIdx) {
         var inst = c.installments[instIdx];
         if (inst.payments && inst.payments.length > 0) {
             var lastPay = inst.payments.pop();
-            inst.paid = Math.max(0, safeNum(inst.paid) - safeNum(lastPay.amount));
+            inst.paid = instRecordsSum(inst);
             inst.status = inst.paid <= 0 ? 'unpaid' : (inst.paid >= inst.amount) ? 'paid' : 'partial';
             setInstallmentContracts(contracts);
             refreshApplicationState();
@@ -4441,15 +4459,17 @@ function showInstDetail(id) {
         html += '<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>';
         for (var j = 0; j < c.installments.length; j++) {
             var inst = c.installments[j];
-            var instRem = safeNum(inst.amount) - safeNum(inst.paid);
-            var instStatus = inst.status === 'paid' ? '<span style="color:#1A6B4E;font-weight:700">مدفوع</span>'
+            var instPaidEff = instEffectivePaid(inst);
+            var instRem = Math.max(0, safeNum(inst.amount) - instPaidEff);
+            var instStatus = inst.status === 'paid' || (safeNum(inst.amount) > 0 && instPaidEff >= safeNum(inst.amount))
+                ? '<span style="color:#1A6B4E;font-weight:700">مدفوع</span>'
                 : inst.status === 'overdue' ? '<span style="color:#C62828;font-weight:700">متأخر</span>'
                 : inst.status === 'partial' ? '<span style="color:#E65100;font-weight:700">مدفوع جزئياً</span>'
                 : '<span style="color:#1565C0;font-weight:700">غير مدفوع</span>';
             html += '<tr><td>' + inst.number + '</td><td>' + inst.dueDate + '</td>';
-            html += '<td>' + fmt(safeNum(inst.amount)) + '</td><td>' + fmt(safeNum(inst.paid)) + '</td>';
+            html += '<td>' + fmt(safeNum(inst.amount)) + '</td><td>' + fmt(instPaidEff) + '</td>';
             html += '<td>' + fmt(instRem) + '</td><td>' + instStatus + '</td><td style="white-space:nowrap">';
-            if (inst.status !== 'paid' && inst.status !== 'cancelled') {
+            if (instRem > 0 && inst.status !== 'cancelled') {
                 html += '<button class="btn-sm btn-green" onclick="recordInstPayment(' + c.id + ',' + j + ')">تسجيل دفعة</button>';
             }
             if (inst.payments && inst.payments.length > 0) {
@@ -4467,12 +4487,16 @@ function showInstDetail(id) {
     var allPays = collectInstPayments(c);
     if (allPays.length > 0) {
         html += '<div style="margin-top:16px"><h4 style="margin-bottom:8px"><i data-lucide="history" style="width:18px;height:18px;vertical-align:middle"></i> سجل جميع الدفعات</h4>';
-        html += '<div style="overflow-x:auto"><table class="table"><thead><tr><th>التاريخ</th><th>الوقت</th><th>القسط</th><th>المبلغ</th><th>المتبقي الكامل</th><th>الموظف</th><th>ملاحظات</th><th>وصل</th></tr></thead><tbody>';
-        for (var q = 0; q < allPays.length; q++) {
+        html += '<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th>التاريخ</th><th>الوقت</th><th>القسط</th><th>المبلغ</th><th>المتبقي الكامل</th><th>الموظف</th><th>ملاحظات</th><th>وصل</th></tr></thead><tbody>';
+        /* السجل تنازلياً: الأحدث أولاً والأقدم في الأسفل (حسب تاريخ ووقت التسجيل)،
+           بينما يبقى جدول الأقساط بترتيبه التصاعدي 1..n دون تأثر. */
+        var rowNo = 0;
+        for (var q = allPays.length - 1; q >= 0; q--) {
+            rowNo++;
             var py = allPays[q];
             var instLabel = py.instNumber != null ? 'القسط ' + py.instNumber : 'عقد';
-            html += '<tr><td>' + (py.pay.date || '—') + '</td><td>' + (py.pay.time || '—') + '</td><td>' + instLabel + '</td><td>' + fmt(safeNum(py.pay.amount)) + '</td><td>' + fmt(py.remainingAfter) + '</td><td>' + (py.pay.employee || '—') + '</td><td>' + (py.pay.notes || '—') + '</td>';
-            html += '<td style="white-space:nowrap"><button class="btn-sm btn-orange" onclick="openReceiptPreview(' + c.id + ',' + q + ')" title="فتح وطباعة وصل هذه الدفعة"><i data-lucide="receipt-text" style="width:14px;height:14px;vertical-align:middle"></i> طباعة وصل</button></td></tr>';
+            html += '<tr><td>' + rowNo + '</td><td>' + (py.pay.date || '—') + '</td><td>' + (py.pay.time || '—') + '</td><td>' + instLabel + '</td><td>' + fmt(safeNum(py.pay.amount)) + '</td><td>' + fmt(py.remainingAfter) + '</td><td>' + (py.pay.employee || '—') + '</td><td>' + (py.pay.notes || '—') + '</td>';
+            html += '<td style="white-space:nowrap"><button class="btn-sm btn-orange" onclick="openReceiptPreview(' + c.id + ',' + allPays[q].index + ')" title="فتح وطباعة وصل هذه الدفعة"><i data-lucide="receipt-text" style="width:14px;height:14px;vertical-align:middle"></i> طباعة وصل</button></td></tr>';
         }
         html += '</tbody></table></div></div>';
     }
@@ -4559,10 +4583,10 @@ function collectInstPayments(c) {
         }
         list[q].seq = q + 1;
         list[q].prevCount = q;
-        list[q].prevTotal = recordsSum - safeNum(pay.amount);
         list[q].curAmount = safeNum(pay.amount);
-        list[q].cumTotal = advance + recordsSum;
-        list[q].remainingAfter = Math.max(0, total - advance - recordsSum);
+        list[q].prevTotal = advance + (recordsSum - list[q].curAmount);
+        list[q].cumTotal = list[q].prevTotal + list[q].curAmount;
+        list[q].remainingAfter = Math.max(0, total - list[q].cumTotal);
         list[q].remainingCount = remCount;
         list[q].index = q;
     }
@@ -4628,10 +4652,10 @@ function buildReceiptHTML(c, entry) {
     html += '<tr><td>رقم الدفعة الحالية (ترتيبها في السجل)</td><td>' + entry.seq + '</td></tr>';
     html += '<tr><td>عدد الدفعات السابقة</td><td>' + entry.prevCount + '</td></tr>';
     if (safeNum(c.advance) > 0) html += '<tr><td>المقدمة المدفوعة عند التعاقد</td><td>' + fmt(safeNum(c.advance)) + ' د.ع</td></tr>';
-    html += '<tr><td>إجمالي الدفعات السابقة</td><td>' + fmt(entry.prevTotal) + ' د.ع</td></tr>';
+    html += '<tr><td>إجمالي المدفوع سابقاً (قبل هذه الدفعة)</td><td>' + fmt(entry.prevTotal) + ' د.ع</td></tr>';
     html += '<tr><td>مبلغ الدفعة الحالية</td><td>' + fmt(entry.curAmount) + ' د.ع</td></tr>';
     html += '<tr><td>إجمالي المدفوع حتى هذه الدفعة</td><td>' + fmt(entry.cumTotal) + ' د.ع</td></tr>';
-    html += '<tr><td>المبلغ المتبقي الحقيقي</td><td>' + fmt(entry.remainingAfter) + ' د.ع</td></tr>';
+    html += '<tr><td>المبلغ المتبقي بعد هذه الدفعة</td><td>' + fmt(entry.remainingAfter) + ' د.ع</td></tr>';
     html += '<tr><td>عدد الدفعات المتبقية</td><td>' + entry.remainingCount + '</td></tr>';
     html += '</tbody></table>';
     html += '<table class="rc-table"><thead><tr><th>البند</th><th>التفاصيل</th></tr></thead><tbody>';
@@ -4748,7 +4772,8 @@ function renderInstallments() {
         var firstUnpaid = -1;
         if (rem > 0 && Array.isArray(item.installments)) {
             for (var m = 0; m < item.installments.length; m++) {
-                if (item.installments[m].status !== 'paid' && item.installments[m].status !== 'cancelled') { firstUnpaid = m; break; }
+                var im = item.installments[m];
+                if (im.status !== 'cancelled' && instEffectivePaid(im) < safeNum(im.amount)) { firstUnpaid = m; break; }
             }
         }
         /* ── صف الجدول (سطح المكتب) ── */

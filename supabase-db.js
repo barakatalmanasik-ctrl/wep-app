@@ -555,6 +555,19 @@ function attachInstallmentChildren(contracts, installs, pays) {
         }
         byContractPay[pcid].push(pay);
     }
+    /* المدفوع الفعلي لكل قسط = سجل الدفعات المرتبط به (المصدر الموثوق)،
+       مع الاحتفاظ بالعمود المحفوظ كمكمّل فقط — فيُعالج أي تباين قديم. */
+    for (var n = 0; n < contracts.length; n++) {
+        var instList = contracts[n].installments;
+        if (!Array.isArray(instList)) continue;
+        for (var o = 0; o < instList.length; o++) {
+            var instP = instList[o];
+            if (!Array.isArray(instP.payments)) continue;
+            var sumP = 0;
+            for (var r2 = 0; r2 < instP.payments.length; r2++) sumP += _sbn(instP.payments[r2].amount);
+            instP.paid = Math.max(_sbn(instP.paid), sumP);
+        }
+    }
     for (var c2 = 0; c2 < contracts.length; c2++) {
         if (byContractPay[contracts[c2].id]) contracts[c2].payments = byContractPay[contracts[c2].id];
     }
