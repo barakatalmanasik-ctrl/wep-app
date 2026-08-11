@@ -2234,6 +2234,10 @@ html[data-layout="centered"] .page {
 
 /* طباعة الوصل منفرداً — يُفعل فقط عند فتح معاينة الوصل */
 body.printing-receipt #receiptPrintRoot { display: block; }
+
+/* صفحة طباعة مخصّصة للوصل: هامش صغير وورقة A4 (لا يؤثر على بقية الطباعة) */
+@page receipt { size: A4; margin: 5mm 8mm; }
+
 @media print {
     body.printing-receipt, body.printing-receipt * { visibility: hidden; }
     body.printing-receipt #receiptPrintRoot,
@@ -2247,15 +2251,44 @@ body.printing-receipt #receiptPrintRoot { display: block; }
         width: 100%;
         margin: 0;
         padding: 0;
+        page: receipt;
     }
-    .receipt-sheet {
+    /* الوصل كله في ورقة واحدة: يُمنع قطع الجدول أو النافذة عبر الصفحات */
+    #receiptPrintRoot .receipt-sheet {
         box-shadow: none;
         border-radius: 0;
         max-width: 100%;
-        padding: 2mm 4mm;
+        padding: 1.5mm 3mm;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        box-sizing: border-box;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+    /* ── ضغط المسافات والخطوط ليتسع الوصل في ورقة واحدة ── */
+    #receiptPrintRoot .rc-header { gap: 8px; margin-bottom: 5px; }
+    #receiptPrintRoot .rc-logo { width: 40px; height: 40px; border-radius: 8px; }
+    #receiptPrintRoot .rc-name { font-size: 1.05rem; }
+    #receiptPrintRoot .rc-slogan { font-size: .66rem; }
+    #receiptPrintRoot .rc-contact { font-size: .6rem; margin-top: 2px; }
+    #receiptPrintRoot .rc-divider { margin: 4px 0 6px; }
+    #receiptPrintRoot .rc-title { font-size: 1.05rem; margin-bottom: 2px; }
+    #receiptPrintRoot .rc-meta { font-size: .64rem; margin-bottom: 6px; }
+    #receiptPrintRoot .rc-grid { gap: 5px; margin-bottom: 6px; }
+    #receiptPrintRoot .rc-box { padding: 4px 8px; border-radius: 6px; }
+    #receiptPrintRoot .rc-box-title { font-size: .58rem; margin-bottom: 2px; }
+    #receiptPrintRoot .rc-row { font-size: .66rem; margin-bottom: 1px; gap: 6px; }
+    #receiptPrintRoot .rc-amount { gap: 5px; margin-bottom: 6px; }
+    #receiptPrintRoot .rc-amount .rc-amt { padding: 5px 8px; border-radius: 6px; }
+    #receiptPrintRoot .rc-amt-label { font-size: .58rem; }
+    #receiptPrintRoot .rc-amt-value { font-size: .92rem; margin-top: 2px; }
+    #receiptPrintRoot .rc-table { font-size: .66rem; margin-bottom: 5px; }
+    #receiptPrintRoot .rc-table th, #receiptPrintRoot .rc-table td { padding: 2.5px 7px; }
+    #receiptPrintRoot .rc-table th { font-size: .6rem; }
+    #receiptPrintRoot .rc-notes { font-size: .64rem; margin-bottom: 6px; }
+    #receiptPrintRoot .rc-sign { margin: 8px 0 3px; font-size: .66rem; }
+    #receiptPrintRoot .rc-sign .rc-sign-line { margin-top: 12px; padding-top: 3px; font-size: .6rem; }
+    #receiptPrintRoot .rc-footer { font-size: .6rem; padding-top: 4px; }
 }
 
 /* ═══════════════════════════════════════════════════════
