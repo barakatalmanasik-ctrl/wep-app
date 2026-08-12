@@ -1532,6 +1532,14 @@ html[data-density="compact"]   .table th { padding: 9px 12px; }
 #clientTicketTable .debt-col-actions {
     min-width: 220px;
 }
+/* إلغاء القص والحد الأقصى لعرض عمود الإجراءات في جداول .table (الأقساط والديون)
+   كي تتسع جميع الأزرار في صف واحد دون انتقال أي زر لسطر منفصل */
+#instTableWrap .debt-col-actions,
+#manualDebtTableWrap .debt-col-actions {
+    max-width: none;
+    overflow: visible;
+    white-space: normal;
+}
 #manualDebtTableWrap tbody tr,
 #manualDebtTableWrap td,
 #expenseTable tbody tr,
@@ -1683,7 +1691,7 @@ html[data-density="compact"]   .table th { padding: 9px 12px; }
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     row-gap: 6px;
     column-gap: 6px;
     white-space: nowrap;
