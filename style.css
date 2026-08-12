@@ -956,7 +956,10 @@ svg.lucide { stroke-width: 2; }
 
 .tbl .actions-cell {
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 6px;
+    flex-wrap: wrap;
 }
 
 .tbl .empty-msg {
@@ -1510,6 +1513,36 @@ html[data-density="compact"]   .table th { padding: 9px 12px; }
 #instTableWrap .debt-col-actions { width: auto; min-width: 250px; }
 #instTableWrap tbody tr { height: auto; }
 #instTableWrap td { height: auto; line-height: 1.5; padding-top: 9px; padding-bottom: 9px; }
+
+/* ── توحيد عمود الإجراءات في كل الجداول على نمط الأقساط ── */
+#manualDebtTableWrap .debt-col-actions,
+#expenseTable .debt-col-actions,
+#clientsTable .debt-col-actions,
+#clientTicketTable .debt-col-actions,
+#clientServicesTable .debt-col-actions,
+#mainTable .debt-col-actions {
+    width: auto;
+    min-width: 150px;
+}
+#manualDebtTableWrap .debt-col-actions,
+#expenseTable .debt-col-actions,
+#clientsTable .debt-col-actions {
+    min-width: 250px;
+}
+#clientTicketTable .debt-col-actions {
+    min-width: 220px;
+}
+#manualDebtTableWrap tbody tr,
+#manualDebtTableWrap td,
+#expenseTable tbody tr,
+#expenseTable td,
+#clientsTable tbody tr,
+#clientsTable td {
+    height: auto;
+    line-height: 1.5;
+    padding-top: 9px;
+    padding-bottom: 9px;
+}
 
 /* ═══════════════════════════════════════
    Badges — الحالة
@@ -2325,7 +2358,9 @@ body.printing-receipt #receiptPrintRoot { display: block; }
     .btn-sm { height: calc(var(--btn-h) - 4px); padding: 0 14px; }
     .btn-icon { width: 40px; height: 40px; }
     .debt-actions { flex-wrap: wrap; }
-    .debt-actions .btn-sm { width: 40px; height: 38px; }
+    .debt-actions .btn-sm { width: auto; height: 38px; padding: 0 12px; }
+    .debt-actions .btn-sm.btn-edit,
+    .debt-actions .btn-sm.btn-del { width: 40px; height: 38px; padding: 0; }
     .field { height: var(--input-h); min-height: 44px; font-size: .9rem; }
     .debt-toolbar .field { height: var(--input-h); min-height: 42px; }
     .tab { padding: 10px 12px; }

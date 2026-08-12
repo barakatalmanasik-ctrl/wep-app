@@ -1315,10 +1315,10 @@ function renderTable() {
             '<td class="num ' + profitClass + '">' + profitText + '</td>' +
             '<td class="num text-brand">' + fmt(safeNum(tx.balance)) + '</td>' +
             '<td>' + (tx.notes || '—') + '</td>' +
-            '<td class="actions-cell">' +
-            '<button class="btn-icon btn-edit" onclick="openEdit(' + tx.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
-            '<button class="btn-icon btn-del" onclick="confirmDelete(' + tx.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
-            '</td></tr>';
+            '<td class="debt-col-actions"><div class="debt-actions">' +
+            '<button class="btn-sm btn-edit" onclick="openEdit(' + tx.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
+            '<button class="btn-sm btn-del" onclick="confirmDelete(' + tx.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
+            '</div></td></tr>';
     }
     body.innerHTML = html;
 }
@@ -2318,6 +2318,7 @@ function renderExpenses() {
             '<td>' + statusBadge + '</td>' +
             '<td>' + lastPayment + '</td>' +
             '<td class="debt-col-actions"><div class="debt-actions">' +
+            '<button class="btn-sm btn-blue" onclick="event.stopPropagation();showExpenseDetail(' + ex.id + ')" title="فتح تفاصيل المصروف">تفاصيل</button>' +
             '<button class="btn-sm btn-edit" onclick="event.stopPropagation();openExpenseEdit(' + ex.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
             payBtn +
             '<button class="btn-sm btn-del" onclick="event.stopPropagation();confirmDeleteExpense(' + ex.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
@@ -3118,10 +3119,11 @@ function renderClients() {
             '<td class="num">' + st2.svcCount + '</td>' +
             '<td class="num">' + fmt(st2.totalPaid) + '</td>' +
             '<td class="num ' + remClass + '">' + fmt(st2.remaining) + '</td>' +
-            '<td class="actions-cell">' +
-            '<button class="btn-icon btn-edit" onclick="openClientEdit(' + cl.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
-            '<button class="btn-icon btn-del" onclick="confirmDeleteClient(' + cl.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
-            '</td></tr>';
+            '<td class="debt-col-actions"><div class="debt-actions">' +
+            '<button class="btn-sm btn-blue" onclick="showClientDetail(' + cl.id + ')" title="فتح تفاصيل العميل">تفاصيل</button>' +
+            '<button class="btn-sm btn-edit" onclick="openClientEdit(' + cl.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
+            '<button class="btn-sm btn-del" onclick="confirmDeleteClient(' + cl.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
+            '</div></td></tr>';
     }
     body.innerHTML = html;
 }
@@ -3348,11 +3350,11 @@ function renderClientTickets(cl) {
             '<td class="num">' + fmt(safeNum(t.amountPaid)) + '</td>' +
             '<td class="num ' + (safeNum(t.remainingAmount) > 0 ? 'text-red' : '') + '">' + fmt(safeNum(t.remainingAmount)) + '</td>' +
             '<td>' + (t.notes || '—') + '</td>' +
-            '<td class="actions-cell">' +
-            (safeNum(t.remainingAmount) > 0 ? '<button class="btn btn-sm btn-orange" onclick="recordDebtPayment(' + t.id + ')" style="margin-left:4px">تسجيل دفعة</button>' : '') +
-            '<button class="btn-icon btn-edit" onclick="openEdit(' + t.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
-            '<button class="btn-icon btn-del" onclick="confirmDelete(' + t.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
-            '</td></tr>';
+            '<td class="debt-col-actions"><div class="debt-actions">' +
+            '<button class="btn-sm btn-edit" onclick="openEdit(' + t.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
+            (safeNum(t.remainingAmount) > 0 ? '<button class="btn-sm btn-green" onclick="recordDebtPayment(' + t.id + ')">تسجيل دفعة</button>' : '') +
+            '<button class="btn-sm btn-del" onclick="confirmDelete(' + t.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
+            '</div></td></tr>';
     }
     body.innerHTML = html;
 }
@@ -3392,10 +3394,10 @@ function renderServices(cl) {
             '<td>' + (s.description || '—') + '</td>' +
             '<td class="num">' + fmt(safeNum(s.amount)) + '</td>' +
             '<td>' + methodBadge + '</td>' +
-            '<td class="actions-cell">' +
-            '<button class="btn-icon btn-edit" onclick="openServiceEdit(' + s.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
-            '<button class="btn-icon btn-del" onclick="confirmDeleteService(' + s.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
-            '</td></tr>';
+            '<td class="debt-col-actions"><div class="debt-actions">' +
+            '<button class="btn-sm btn-edit" onclick="openServiceEdit(' + s.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>' +
+            '<button class="btn-sm btn-del" onclick="confirmDeleteService(' + s.id + ')" title="حذف"><i data-lucide="trash-2"></i></button>' +
+            '</div></td></tr>';
     }
     body.innerHTML = html;
 }
@@ -3731,13 +3733,13 @@ function renderTrash() {
         html += '<td>' + (item.displayName || '-') + '</td>';
         html += '<td>' + dateStr + '</td>';
         html += '<td class="' + (expired ? 'text-red' : 'text-green') + '">' + formatTimeRemaining(item.deletedAt) + '</td>';
-        html += '<td>';
+        html += '<td><div class="debt-actions">';
         if (expired) {
             html += '<button class="btn btn-sm btn-danger" onclick="confirmPermanentDelete(' + item.id + ')">حذف نهائي</button>';
         } else {
             html += '<button class="btn btn-sm btn-green" onclick="restoreFromTrash(' + item.id + ')">استرجاع</button>';
         }
-        html += '</td>';
+        html += '</div></td>';
         html += '</tr>';
     }
     body.innerHTML = html;
@@ -3997,6 +3999,7 @@ function renderManualDebts() {
         html += '<td class="debt-col-date">' + (item.date || '—') + '</td>';
         html += '<td class="debt-col-status">' + statusHtml + '</td>';
         html += '<td class="debt-col-actions"><div class="debt-actions">';
+        html += '<button class="btn-sm btn-blue" onclick="showDebtDetail(' + item.id + ')" title="فتح تفاصيل الدين">تفاصيل</button>';
         html += '<button class="btn-sm btn-edit" onclick="openManualDebtEdit(' + item.id + ')" title="تعديل"><i data-lucide="pencil"></i></button>';
         if (st2 !== 'paid') html += '<button class="btn-sm btn-green" onclick="recordManualDebtPayment(' + item.id + ')">تسجيل دفعة</button>';
         else html += '<button class="btn-sm btn-green-disabled"><i data-lucide="circle-check-big"></i> تم السداد</button>';
