@@ -267,9 +267,67 @@ function sbSelectInstallments(client, ids) {
     return client.from('installments').select('*').in('contract_id', ids).order('number', { ascending: true });
 }
 
+/* تقسيم الصفوف إلى دفعات متجانسة (نفس مجموعة المفاتيح) قبل إرسالها.
+   السبب الجذري لفقدان الأقساط صامتاً: كان الأسلوب يرسل مصفوفة واحدة تضم
+   صفوفاً بمعرّف (id) وأخرى بلا معرّف إلى PostgREST على on_conflict=id،
+   فيرفض الطلب كاملاً برمز PGRST102 "All object keys must match" قبل الوصول
+   إلى قاعدة البيانات (فشل كل الأقساط دون أي رسالة). الحل: فصل كل شكل من
+   الصفوف في طلب مستقل، مع إسقاط أي id فارغ كي لا يفسد شكل الدفعة. */
+function _sbRowBatches(rows) {
+    var batches = [], bySig = {};
+    for (var i = 0; i < rows.length; i++) {
+        var src = rows[i];
+        var o = {};
+        for (var k in src) {
+            var v = src[k];
+            if (k === 'id') {
+                if (v === undefined || v === null || v === '') continue;
+                var n = Number(v);
+                if (isNaN(n) || n < 1) continue;
+                o[k] = n;
+            } else if (v === undefined) {
+                continue;
+            } else {
+                o[k] = v;
+            }
+        }
+        var sig = Object.keys(o).sort().join('|');
+        if (!bySig[sig]) { bySig[sig] = []; batches.push(bySig[sig]); }
+        bySig[sig].push(o);
+    }
+    return batches;
+}
+
+/* إرسال دفعات متجانسة بالتسلسل: الصفوف الحاملة للمعرّف تُرسل upsert على
+   onConflict المعتمد، والصفوف بلا معرّف تُرسل insert صرفاً (PostgREST يولّد
+   المعرّف)، ثم تُدمج النتائج. wantSelect يجعل كل طلب يعيد الصفوف المحفوظة
+   (لتقاط معرّفات الخادم وربطها في الذاكرة). */
+function _sbSendBatches(client, table, rows, onConflict, wantSelect) {
+    var batches = _sbRowBatches(rows);
+    if (!batches.length) return Promise.resolve({ data: [], error: null });
+    var chain = Promise.resolve();
+    var allData = [];
+    for (var b = 0; b < batches.length; b++) {
+        (function(batch) {
+            chain = chain.then(function() {
+                var hasId = Object.keys(batch[0]).indexOf('id') !== -1;
+                var q = hasId
+                    ? client.from(table).upsert(batch, { onConflict: onConflict || 'id' })
+                    : client.from(table).insert(batch);
+                if (wantSelect) q = q.select();
+                return q.then(function(res) {
+                    if (res && res.error) throw res.error;
+                    if (res && Array.isArray(res.data)) allData = allData.concat(res.data);
+                });
+            });
+        })(batches[b]);
+    }
+    return chain.then(function() { return { data: allData, error: null }; });
+}
+
 function sbUpsertRows(client, table, rows, onConflict) {
     if (!rows.length) return Promise.resolve();
-    return client.from(table).upsert(rows, { onConflict: onConflict || 'id' });
+    return _sbSendBatches(client, table, rows, onConflict, false);
 }
 
 function sbDeleteOrphans(client, table, jsIds) {
@@ -291,7 +349,7 @@ function sbReplaceChildren(client, table, fk, parentIds, rows) {
         : Promise.resolve();
     return del.then(function() {
         if (!rows.length) return Promise.resolve();
-        return client.from(table).insert(rows);
+        return _sbSendBatches(client, table, rows, null, false);
     });
 }
 
@@ -923,7 +981,7 @@ function sbSaveAll() {
                         .then(function() {
                             /* .select() ضروري — بدونه يُرجع Supabase data:null ولا نستطيع
                                التقاط معرّفات الخادم لتوثيقها على الأقساط في الذاكرة */
-                            return client.from('installments').upsert(instRows, { onConflict: 'id' }).select();
+                            return _sbSendBatches(client, 'installments', instRows, 'id', true);
                         })
                         .then(function(r) {
                             if (r && r.error) throw r.error;
