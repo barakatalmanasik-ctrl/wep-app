@@ -513,16 +513,16 @@ function attachManualDebtPayments(debts, rows) {
 function attachInstallmentChildren(contracts, installs, pays) {
     var byContract = {};
     for (var i = 0; i < installs.length; i++) {
-        var cid = installs[i].contract_id;
+        var cid = Number(installs[i].contract_id);
         if (!byContract[cid]) byContract[cid] = [];
-        byContract[cid].push({ id: installs[i].id, number: _sbn(installs[i].number), dueDate: installs[i].due_date, amount: _sbn(installs[i].amount), paid: _sbn(installs[i].paid), status: installs[i].status, payments: [] });
+        byContract[cid].push({ id: Number(installs[i].id), number: _sbn(installs[i].number), dueDate: installs[i].due_date, amount: _sbn(installs[i].amount), paid: _sbn(installs[i].paid), status: installs[i].status, payments: [] });
     }
     var instById = {};
     for (var j = 0; j < installs.length; j++) {
-        instById[installs[j].id] = { contractId: installs[j].contract_id, instIndex: -1 };
+        instById[Number(installs[j].id)] = { contractId: Number(installs[j].contract_id), instIndex: -1 };
     }
     for (var c = 0; c < contracts.length; c++) {
-        var list = byContract[contracts[c].id];
+        var list = byContract[Number(contracts[c].id)];
         if (list) {
             /* الترتيب الرسمي للأقساط هو رقم القسط (number) — دائمًا تصاعديًا،
                ولا يتأثر بحالة القسط ولا بتاريخ الاستحقاق ولا بترتيب الصفوف القادمة من الخادم. */
@@ -535,7 +535,7 @@ function attachInstallmentChildren(contracts, installs, pays) {
     }
     var byContractPay = {};
     for (var p = 0; p < pays.length; p++) {
-        var pcid = pays[p].contract_id;
+        var pcid = Number(pays[p].contract_id);
         if (!byContractPay[pcid]) byContractPay[pcid] = [];
         var pay = {
             id: (pays[p].id !== undefined && pays[p].id !== null) ? ('r' + pays[p].id) : undefined,
@@ -546,10 +546,10 @@ function attachInstallmentChildren(contracts, installs, pays) {
             notes: pays[p].notes || ''
         };
         var iid = pays[p].installment_id;
-        if (iid !== null && iid !== undefined && instById[iid]) {
-            var holder = byContract[instById[iid].contractId];
-            if (holder && holder[instById[iid].instIndex]) {
-                holder[instById[iid].instIndex].payments.push(pay);
+        if (iid !== null && iid !== undefined && instById[Number(iid)]) {
+            var holder = byContract[instById[Number(iid)].contractId];
+            if (holder && holder[instById[Number(iid)].instIndex]) {
+                holder[instById[Number(iid)].instIndex].payments.push(pay);
                 continue;
             }
         }
@@ -569,7 +569,7 @@ function attachInstallmentChildren(contracts, installs, pays) {
         }
     }
     for (var c2 = 0; c2 < contracts.length; c2++) {
-        if (byContractPay[contracts[c2].id]) contracts[c2].payments = byContractPay[contracts[c2].id];
+        if (byContractPay[Number(contracts[c2].id)]) contracts[c2].payments = byContractPay[Number(contracts[c2].id)];
     }
 }
 
@@ -927,6 +927,7 @@ function sbSaveAll() {
                         })
                         .then(function(r) {
                             if (r && r.error) throw r.error;
+                            console.log('[sbSaveAll] أقساط مرسلة=', instRows.length, '| عادت من الخادم=', r && Array.isArray(r.data) ? r.data.length : 0);
                             /* ربط المعرفات الصادرة من الخادم بالأقساط في الذاكرة */
                             if (r && Array.isArray(r.data) && r.data.length) {
                                 var idMap = {};
@@ -994,8 +995,10 @@ function sbSaveAll() {
                                    وإلا يُظهر النظام «تم الحفظ بنجاح» والدفعات مفقودة فعلاً */
                                 return client.from('installment_payments').insert(instPayRows).then(function(pr) {
                                     if (pr && pr.error) throw pr.error;
+                                    console.log('[sbSaveAll] دفعات أقساط أُرسلت=', instPayRows.length);
                                 });
                             }
+                            console.log('[sbSaveAll] لا توجد دفعات أقساط لإرسالها (instPayRows=0)');
                             return Promise.resolve();
                         })
                         .then(function() {
@@ -1164,6 +1167,44 @@ function sbSyncNow() {
         return sbWaitForSyncIdle().then(run);
     }
     return run();
+}
+
+/* التحقق الفعلي بعد الاستيراد: قراءة أعداد الخادم ومقارنتها مع المتوقع في
+   الذاكرة (عقود/أقساط/دفعات) — يُظهر رسالة الاستيراد أرقاماً حقيقية من الخادم
+   بدل رسالة النجاح العامة، فيكشف فوراً أي فقدان أثناء الحفظ أو الاسترجاع */
+function sbVerifyCounts() {
+    return supabaseReady().then(function(client) {
+        var expected = { contracts: 0, installments: 0, payments: 0 };
+        if (Array.isArray(db.installmentContracts)) {
+            for (var i = 0; i < db.installmentContracts.length; i++) {
+                var c = db.installmentContracts[i];
+                expected.contracts++;
+                if (Array.isArray(c.installments)) {
+                    for (var j = 0; j < c.installments.length; j++) {
+                        expected.installments++;
+                        if (Array.isArray(c.installments[j].payments)) {
+                            expected.payments += c.installments[j].payments.length;
+                        }
+                    }
+                }
+                if (Array.isArray(c.payments)) expected.payments += c.payments.length;
+            }
+        }
+        return Promise.all([
+            client.from('installment_contracts').select('id'),
+            client.from('installments').select('id'),
+            client.from('installment_payments').select('id')
+        ]).then(function(results) {
+            return {
+                expected: expected,
+                actual: {
+                    contracts: (results[0].data || []).length,
+                    installments: (results[1].data || []).length,
+                    payments: (results[2].data || []).length
+                }
+            };
+        });
+    });
 }
 
 window.addEventListener('pagehide', function() {

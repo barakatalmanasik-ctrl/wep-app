@@ -1919,9 +1919,26 @@ function importJSON(e) {
                     if (typeof sbSyncNow === 'function' && isSupabaseConfigured()) {
                         /* حفظ فوري وانتظاره: الاستيراد لا يُعتبر ناجحاً إلا إذا ثبت حفظه على الخادم */
                         sbSyncNow().then(function() {
+                            /* تحقق فعلي من الخادم بعد الحفظ: مقارنة أعداد الخادم (عقود/أقساط/دفعات)
+                               بالمُتوقع في الذاكرة — إن نقص شيء تُظهر الرسالة الأرقام الحقيقية */
+                            if (typeof sbVerifyCounts === 'function') {
+                                return sbVerifyCounts().catch(function() { return null; }).then(function(v) {
+                                    if (v && v.expected && v.actual
+                                        && v.actual.contracts === v.expected.contracts
+                                        && v.actual.installments === v.expected.installments
+                                        && v.actual.payments === v.expected.payments) {
+                                        importDone('تم الحفظ والتحقق من الخادم: ' + v.expected.contracts + ' عقد / ' + v.expected.installments + ' قسط / ' + v.expected.payments + ' دفعة', '');
+                                    } else if (v && v.actual) {
+                                        importDone('تم الحفظ محلياً لكن الخادم يعرض ' + v.actual.contracts + ' عقد / ' + v.actual.installments + ' قسط / ' + v.actual.payments + ' دفعة — والمتوقع ' + v.expected.contracts + ' / ' + v.expected.installments + ' / ' + v.expected.payments, '');
+                                    } else {
+                                        importDone('تم استيراد جميع البيانات وحفظها على الخادم بنجاح', '');
+                                    }
+                                });
+                            }
                             importDone('تم استيراد جميع البيانات وحفظها على الخادم بنجاح', '');
+                        }).then(function() {
                             /* إعادة تحميل للتحقق من بقاء البيانات فعلياً على الخادم بعد الاستيراد */
-                            setTimeout(function() { location.reload(); }, 1500);
+                            setTimeout(function() { location.reload(); }, 2000);
                         }).catch(function(err) {
                             importDone('', extractErrDetail(err));
                         });
