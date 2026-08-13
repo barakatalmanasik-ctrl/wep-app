@@ -702,6 +702,17 @@ function _sbFilterByIds(items, ids) {
     return out;
 }
 
+/* تاريخ استحقاق آمن للقسط قبل الحفظ:
+   يُبقي تاريخ القسط الحقيقي كما هو إن وُجد، وإن نقص أو كان غير صالح
+   يستند إلى تاريخ بدء العقد ثم تاريخ اليوم — بدل استبعاد القسط كلياً،
+   وهو ما كان يسبب صامتاً فقدان دفعاته أيضاً من الحفظ. */
+function _sbSafeDueDate(con, inst) {
+    var iso = /^[0-9]{4}-[0-9]{2}-[0-9]{2}/;
+    if (inst && iso.test(String(inst.dueDate || ''))) return String(inst.dueDate).slice(0, 10);
+    if (con && iso.test(String(con.startDate || ''))) return String(con.startDate).slice(0, 10);
+    return new Date().toISOString().slice(0, 10);
+}
+
 function _sbBuildPayRows(table, parents, fk, childKey, errors) {
     var rows = [];
     for (var i = 0; i < parents.length; i++) {
@@ -855,7 +866,7 @@ function sbSaveAll() {
                             var irow = {
                                 contract_id: con.id,
                                 number: instNum,
-                                due_date: inst.dueDate || null,
+                                due_date: _sbSafeDueDate(con, inst),
                                 amount: _sbn(inst.amount),
                                 paid: _sbn(inst.paid),
                                 status: ['paid', 'unpaid', 'partial', 'overdue', 'cancelled'].indexOf(inst.status) !== -1 ? inst.status : 'unpaid'
@@ -900,11 +911,14 @@ function sbSaveAll() {
                         .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'manual_debt_payments', 'manual_debt_id', mdIds, mdPayRows); })
                         .then(function(r) {
                             if (r && r.error) throw r.error;
-                            /* دفعات الأقساط تُحذف أولاً ثم تُعاد إدراجها بعد الأقساط */
+                            /* دفعات الأقساط تُحذف أولاً ثم تُعاد إدراجها بعد الأقساط —
+                               خطأ الحذف يُفحص ولا يُبتلع (الحذف فشل = تكرار الدفعات) */
                             var delInstPay = instIds.length
                                 ? client.from('installment_payments').delete().in('contract_id', instIds)
                                 : Promise.resolve();
-                            return delInstPay;
+                            return delInstPay.then(function(dr) {
+                                if (dr && dr.error) throw dr.error;
+                            });
                         })
                         .then(function() {
                             /* .select() ضروري — بدونه يُرجع Supabase data:null ولا نستطيع
@@ -934,16 +948,23 @@ function sbSaveAll() {
                             var instPayRows = [];
                             var mkInstPayRow = function(cid, iid, py) {
                                 if (_sbn(py.amount) < 0) return null;
+                                /* تاريخ الدفعة يُحفظ كما هو إن كان صالحاً (Y-M-D)؛
+                                   وإن نقص/خالف الصيغة يُعوَّض بتاريخ اليوم كي لا تُسقط
+                                   الدفعة ولا يتعطل حفظ بقية الدفعات على الإدراج */
+                                var iso = /^[0-9]{4}-[0-9]{2}-[0-9]{2}/;
+                                var safeDate = (py.date && iso.test(String(py.date)))
+                                    ? String(py.date).slice(0, 10)
+                                    : new Date().toISOString().slice(0, 10);
                                 var row = {
                                     contract_id: cid,
                                     installment_id: iid,
-                                    date: py.date,
+                                    date: safeDate,
                                     amount: _sbn(py.amount),
                                     employee: py.employee || '',
                                     notes: py.notes || ''
                                 };
                                 if (py.time) {
-                                    var ts = new Date(String(py.date) + 'T' + String(py.time) + ':00');
+                                    var ts = new Date(String(safeDate) + 'T' + String(py.time) + ':00');
                                     if (!isNaN(ts.getTime())) row.created_at = ts.toISOString();
                                 }
                                 return row;
@@ -969,7 +990,11 @@ function sbSaveAll() {
                                 }
                             }
                             if (instPayRows.length) {
-                                return client.from('installment_payments').insert(instPayRows);
+                                /* فحص خطأ إدراج دفعات الأقساط — لا يُبتلع خطأ الدفعات صامتاً،
+                                   وإلا يُظهر النظام «تم الحفظ بنجاح» والدفعات مفقودة فعلاً */
+                                return client.from('installment_payments').insert(instPayRows).then(function(pr) {
+                                    if (pr && pr.error) throw pr.error;
+                                });
                             }
                             return Promise.resolve();
                         })
