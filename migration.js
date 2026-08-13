@@ -1166,3 +1166,231 @@ function normalizeImportedClients(clients) {
     }
     return result;
 }
+
+/* ═══════════════════════════════════════
+    هيكل دين يدوي واحد (Manual Debt Schema)
+═══════════════════════════════════════ */
+
+var MANUAL_DEBT_SCHEMA = {
+    id: 0,
+    name: '',
+    phone: '',
+    date: '',
+    totalAmount: 0,
+    amountPaid: 0,
+    remaining: 0,
+    reason: '',
+    notes: '',
+    payments: []
+};
+
+/* ═══════════════════════════════════════
+    هيكل عقد أقساط واحد (Installment Contract Schema)
+═══════════════════════════════════════ */
+
+var INSTALLMENT_CONTRACT_SCHEMA = {
+    id: 0,
+    name: '',
+    phone: '',
+    description: '',
+    total: 0,
+    advance: 0,
+    count: 0,
+    instValue: 0,
+    startDate: '',
+    period: 'monthly',
+    notes: '',
+    installments: [],
+    payments: []
+};
+
+/* ═══════════════════════════════════════
+    تطبيع دين يدوي واحد
+═══════════════════════════════════════ */
+
+function normalizeManualDebt(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    var d = {};
+
+    for (var key in MANUAL_DEBT_SCHEMA) {
+        var defaultVal = MANUAL_DEBT_SCHEMA[key];
+        var val = raw[key];
+
+        if (val === undefined || val === null) {
+            d[key] = defaultVal;
+        } else if (typeof defaultVal === 'number') {
+            var n = Number(val);
+            d[key] = isNaN(n) ? defaultVal : Math.trunc(n);
+        } else if (typeof defaultVal === 'string') {
+            d[key] = String(val);
+        } else if (Array.isArray(defaultVal)) {
+            d[key] = Array.isArray(val) ? val : defaultVal;
+        } else {
+            d[key] = val;
+        }
+    }
+
+    if (!Array.isArray(d.payments)) d.payments = [];
+    var normPayments = [];
+    for (var j = 0; j < d.payments.length; j++) {
+        var p = normalizePayment(d.payments[j]);
+        if (p) normPayments.push(p);
+    }
+    d.payments = normPayments;
+
+    return d;
+}
+
+/* ═══════════════════════════════════════
+    تطبيع دفعة قسط واحد — مع الاحتفاظ بكل الحقول
+    (الموظف والوقت) كي لا تُفقد أثناء الاستيراد
+═══════════════════════════════════════ */
+
+function normalizeInstallmentPayment(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    var p = {
+        id: dbSafeNum(raw.id),
+        date: (raw.date === undefined || raw.date === null) ? '' : String(raw.date),
+        amount: dbSafeNum(raw.amount),
+        employee: (raw.employee === undefined || raw.employee === null) ? '' : String(raw.employee),
+        notes: (raw.notes === undefined || raw.notes === null) ? '' : String(raw.notes)
+    };
+    if (raw.time !== undefined && raw.time !== null) p.time = String(raw.time);
+
+    return p;
+}
+
+/* ═══════════════════════════════════════
+    تطبيع عقد أقساط واحد
+═══════════════════════════════════════ */
+
+function normalizeInstallmentContract(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    var c = {};
+
+    for (var key in INSTALLMENT_CONTRACT_SCHEMA) {
+        var defaultVal = INSTALLMENT_CONTRACT_SCHEMA[key];
+        var val = raw[key];
+
+        if (val === undefined || val === null) {
+            c[key] = defaultVal;
+        } else if (typeof defaultVal === 'number') {
+            var n = Number(val);
+            c[key] = isNaN(n) ? defaultVal : Math.trunc(n);
+        } else if (typeof defaultVal === 'string') {
+            c[key] = String(val);
+        } else if (Array.isArray(defaultVal)) {
+            c[key] = Array.isArray(val) ? val : defaultVal;
+        } else {
+            c[key] = val;
+        }
+    }
+
+    if (!Array.isArray(c.installments)) c.installments = [];
+    var normInst = [];
+    for (var i = 0; i < c.installments.length; i++) {
+        var inst = c.installments[i];
+        if (!inst || typeof inst !== 'object') continue;
+
+        var ni = {
+            id: dbSafeNum(inst.id),
+            number: dbSafeNum(inst.number),
+            dueDate: (inst.dueDate === undefined || inst.dueDate === null) ? '' : String(inst.dueDate),
+            amount: dbSafeNum(inst.amount),
+            paid: dbSafeNum(inst.paid),
+            status: ['paid', 'unpaid', 'partial', 'overdue', 'cancelled'].indexOf(inst.status) !== -1 ? inst.status : 'unpaid',
+            payments: []
+        };
+        if (Array.isArray(inst.payments)) {
+            for (var ip = 0; ip < inst.payments.length; ip++) {
+                var np = normalizeInstallmentPayment(inst.payments[ip]);
+                if (np) ni.payments.push(np);
+            }
+        }
+        normInst.push(ni);
+    }
+    c.installments = normInst;
+
+    if (!Array.isArray(c.payments)) c.payments = [];
+    var normCPay = [];
+    for (var j = 0; j < c.payments.length; j++) {
+        var cp = normalizeInstallmentPayment(c.payments[j]);
+        if (cp) normCPay.push(cp);
+    }
+    c.payments = normCPay;
+
+    return c;
+}
+
+/* ═══════════════════════════════════════
+    تطبيع عنصر من سلة المحذوفات
+═══════════════════════════════════════ */
+
+var DELETED_ITEM_TYPES = ['transaction', 'expense', 'client', 'service', 'manualDebt', 'installmentContract'];
+
+function normalizeDeletedItem(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    var type = DELETED_ITEM_TYPES.indexOf(raw.type) !== -1 ? raw.type : '';
+    if (!type) return null;
+
+    var item = {
+        id: dbSafeNum(raw.id),
+        type: type,
+        data: (raw.data && typeof raw.data === 'object') ? raw.data : {},
+        displayName: dbSafeStr(raw.displayName),
+        deletedAt: dbSafeNum(raw.deletedAt)
+    };
+    if (!item.deletedAt) item.deletedAt = Date.now();
+    return item;
+}
+
+/* ═══════════════════════════════════════
+    تطبيع قوائم مستوردة (ديون، عقود، محذوفات، فئات)
+═══════════════════════════════════════ */
+
+function normalizeImportedManualDebts(list) {
+    var result = [];
+    if (!Array.isArray(list)) return result;
+    for (var i = 0; i < list.length; i++) {
+        var d = normalizeManualDebt(list[i]);
+        if (d) result.push(d);
+    }
+    return result;
+}
+
+function normalizeImportedInstallmentContracts(list) {
+    var result = [];
+    if (!Array.isArray(list)) return result;
+    for (var i = 0; i < list.length; i++) {
+        var c = normalizeInstallmentContract(list[i]);
+        if (c) result.push(c);
+    }
+    return result;
+}
+
+function normalizeImportedDeletedItems(list) {
+    var result = [];
+    if (!Array.isArray(list)) return result;
+    for (var i = 0; i < list.length; i++) {
+        var item = normalizeDeletedItem(list[i]);
+        if (item) result.push(item);
+    }
+    return result;
+}
+
+function normalizeImportedExpenseCategories(list) {
+    var result = [];
+    if (!Array.isArray(list)) return result;
+    var seen = {};
+    for (var i = 0; i < list.length; i++) {
+        var s = String(list[i]).trim();
+        if (!s || seen[s]) continue;
+        seen[s] = true;
+        result.push(s);
+    }
+    return result;
+}

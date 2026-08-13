@@ -169,7 +169,7 @@ function txToRow(tx) {
         id: _sbn(tx.id),
         type: tx.type === 'increase' ? 'increase' : 'ticket',
         service_type: tx.serviceType || 'ticket',
-        date: tx.date || null,
+        date: tx.date || new Date().toISOString().slice(0, 10),
         amount: _sbn(tx.amount),
         base_price: _sbn(tx.basePrice),
         sale_price: _sbn(tx.salePrice),
@@ -194,7 +194,7 @@ function expenseToRow(ex) {
     var status = ex.paymentStatus || (paid >= amount && amount > 0 ? 'paid' : (paid > 0 ? 'partial' : 'unpaid'));
     return {
         id: _sbn(ex.id),
-        date: ex.date || null,
+        date: ex.date || new Date().toISOString().slice(0, 10),
         category: _sbs(ex.category),
         name: _sbs(ex.name),
         amount: amount,
@@ -203,7 +203,7 @@ function expenseToRow(ex) {
         description: _sbs(ex.description),
         notes: _sbs(ex.notes),
         is_recurring: !!ex.isRecurring,
-        due_day: _sbn(ex.dueDay),
+        due_day: Math.min(31, Math.max(0, _sbn(ex.dueDay))),
         payment_status: status
     };
 }
@@ -223,7 +223,7 @@ function manualDebtToRow(d) {
         id: _sbn(d.id),
         name: _sbs(d.name),
         phone: _sbs(d.phone),
-        date: d.date || null,
+        date: d.date || new Date().toISOString().slice(0, 10),
         total_amount: _sbn(d.totalAmount),
         amount_paid: _sbn(d.amountPaid),
         remaining: _sbn(d.remaining),
@@ -242,7 +242,7 @@ function contractToRow(c) {
         advance: _sbn(c.advance),
         count: _sbn(c.count),
         inst_value: _sbn(c.instValue),
-        start_date: c.startDate || null,
+        start_date: c.startDate || new Date().toISOString().slice(0, 10),
         period: c.period || 'monthly',
         notes: _sbs(c.notes)
     };
@@ -577,6 +577,154 @@ function attachInstallmentChildren(contracts, installs, pays) {
    الحفظ الكامل (مزامنة كاملة)
 ═══════════════════════════════════════ */
 
+/* ═══════════════════════════════════════
+   قواعد التحقق من الصفوف قبل إرسالها إلى الخادم
+   — مطابقة للقيود الفعلية في supabase/01_schema.sql —
+   الهدف: لا يُوقف سجل معطوب حفظ الدفعة كلها؛ يُستثنى ويُسجَّل خطؤه.
+═══════════════════════════════════════ */
+
+var _SB_ENUM = {
+    transactions: { type: ['increase', 'ticket'], service_type: ['ticket', 'visa', 'hotel', 'esim'], payment_method: ['cash', 'debt'] },
+    expenses: { payment_status: ['paid', 'partial', 'unpaid'] },
+    installment_contracts: { period: ['weekly', 'biweekly', 'monthly', 'bimonthly', 'quarterly', 'custom'] },
+    installments: { status: ['paid', 'unpaid', 'partial', 'overdue', 'cancelled'] },
+    expense_monthly_records: { status: ['paid', 'unpaid'] },
+    deleted_items: { item_type: ['transaction', 'expense', 'client', 'service', 'manualDebt', 'installmentContract'] },
+    client_services: { payment_method: ['cash', 'debt'] }
+};
+
+var _SB_REQUIRED = {
+    clients: ['name'],
+    manual_debts: ['name'],
+    installment_contracts: ['name'],
+    installments: ['due_date']
+};
+
+var _SB_NONNEG = {
+    transactions: ['amount', 'base_price', 'sale_price', 'amount_paid', 'down_payment', 'remaining_amount'],
+    expenses: ['amount', 'amount_paid', 'remaining'],
+    manual_debts: ['total_amount', 'amount_paid', 'remaining'],
+    installment_contracts: ['total', 'advance', 'count', 'inst_value'],
+    installments: ['amount', 'paid'],
+    installment_payments: ['amount'],
+    debt_payments: ['amount'],
+    expense_payments: ['amount'],
+    manual_debt_payments: ['amount'],
+    client_services: ['amount']
+};
+
+var _SB_RANGES = {
+    expenses: { due_day: [0, 31] }
+};
+
+function _sbValidateRow(table, row) {
+    if (!row || typeof row !== 'object') return 'سجل فارغ';
+    var errs = [];
+    var req = _SB_REQUIRED[table];
+    if (req) {
+        for (var r = 0; r < req.length; r++) {
+            var v = row[req[r]];
+            if (v === undefined || v === null || v === '') {
+                errs.push('الحقل ' + req[r] + ' مطلوب');
+            }
+        }
+    }
+    var en = _SB_ENUM[table];
+    if (en) {
+        for (var col in en) {
+            if (en[col].indexOf(row[col]) === -1) {
+                errs.push('الحقل ' + col + ' = ' + JSON.stringify(row[col]) + ' غير مسموح');
+            }
+        }
+    }
+    var nn = _SB_NONNEG[table];
+    if (nn) {
+        for (var i = 0; i < nn.length; i++) {
+            var v2 = row[nn[i]];
+            if (typeof v2 !== 'number' || !(v2 >= 0) || Math.floor(v2) !== v2) {
+                errs.push('الحقل ' + nn[i] + ' = ' + JSON.stringify(v2) + ' يجب أن يكون عدداً غير سالب');
+            }
+        }
+    }
+    var rg = _SB_RANGES[table];
+    if (rg) {
+        for (var col2 in rg) {
+            var v3 = row[col2];
+            if (v3 < rg[col2][0] || v3 > rg[col2][1]) {
+                errs.push('الحقل ' + col2 + ' = ' + JSON.stringify(v3) + ' خارج النطاق ' + rg[col2][0] + '-' + rg[col2][1]);
+            }
+        }
+    }
+    if (table === 'expense_monthly_records') {
+        if (!/^[0-9]{4}-[0-9]{2}$/.test(String(row.month || ''))) {
+            errs.push('شهر غير صالح: ' + JSON.stringify(row.month));
+        }
+    }
+    return errs.join('؛ ');
+}
+
+function _sbBuildParentRows(table, items, mapper, errors) {
+    var rows = [];
+    var seen = {};
+    for (var i = 0; i < items.length; i++) {
+        var row = mapper(items[i]);
+        var err = _sbValidateRow(table, row);
+        if (err) {
+            errors.push({ table: table, id: (items[i] && items[i].id !== undefined) ? items[i].id : i, error: err });
+            continue;
+        }
+        if (row.id > 0) {
+            if (seen[row.id]) continue;
+            seen[row.id] = true;
+        }
+        rows.push(row);
+    }
+    return rows;
+}
+
+function _sbDedupById(rows) {
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+        var id = rows[i].id;
+        if (id > 0 && seen[id]) continue;
+        if (id > 0) seen[id] = true;
+        out.push(rows[i]);
+    }
+    return out;
+}
+
+function _sbFilterByIds(items, ids) {
+    var set = {};
+    for (var i = 0; i < ids.length; i++) set[ids[i]] = true;
+    var out = [];
+    for (var j = 0; j < items.length; j++) if (set[items[j].id]) out.push(items[j]);
+    return out;
+}
+
+function _sbBuildPayRows(table, parents, fk, childKey, errors) {
+    var rows = [];
+    for (var i = 0; i < parents.length; i++) {
+        var p = parents[i];
+        if (!Array.isArray(p[childKey])) continue;
+        for (var j = 0; j < p[childKey].length; j++) {
+            var c = p[childKey][j];
+            var row = {};
+            row[fk] = p.id;
+            row.date = c.date || new Date().toISOString().slice(0, 10);
+            row.amount = _sbn(c.amount);
+            row.notes = c.notes || '';
+            var err = _sbValidateRow(table, row);
+            if (err) {
+                errors.push({ table: table, id: p.id, error: err });
+                continue;
+            }
+            rows.push(row);
+        }
+    }
+    return rows;
+}
+
 function sbSaveAll() {
     if (!db) return Promise.resolve();
     return supabaseReady().then(function(client) {
@@ -589,189 +737,250 @@ function sbSaveAll() {
             return sbSaveCategories(client);
         }).then(function() {
 
-            /* 3) الجداول الأم */
-            return Promise.all([
-                sbUpsertRows(client, 'transactions', db.transactions.map(txToRow)),
-                sbUpsertRows(client, 'expenses', db.expenses.map(expenseToRow)),
-                sbUpsertRows(client, 'clients', db.clients.map(clientToRow)),
-                sbUpsertRows(client, 'manual_debts', db.manualDebts.map(manualDebtToRow)),
-                sbUpsertRows(client, 'installment_contracts', db.installmentContracts.map(contractToRow))
-            ]);
-        }).then(function(parentResults) {
-            for (var i = 0; i < parentResults.length; i++) {
-                if (parentResults[i] && parentResults[i].error) throw parentResults[i].error;
+            /* 3) الجداول الأم — تُرفع بالتسلسل بترتيب المفاتيح الأجنبية:
+               clients ← manual_debts ← installment_contracts ← transactions ← expenses
+               (transactions.client_id يشير إلى clients؛ الرفع المتوازي سابقاً كان
+               يجعل transactions تسبق clients على قاعدة فارغة فيفشل بخطأ FK) */
+
+            var parentErrors = [];
+
+            /* 3.1) تعقيم الإشارات الشاردة: client_id لعميل غير موجود يُحذف بدل إفشال الحفظ */
+            var validClientIds = {};
+            for (var vci = 0; vci < db.clients.length; vci++) validClientIds[db.clients[vci].id] = true;
+
+            /* 3.2) بناء صفوف الجداول الأم مع التحقق — لا يُوقف سجل معطوب الدفعة كلها */
+            var clientRows = _sbBuildParentRows('clients', db.clients, clientToRow, parentErrors);
+            var mdRows = _sbBuildParentRows('manual_debts', db.manualDebts, manualDebtToRow, parentErrors);
+            var conRows = _sbBuildParentRows('installment_contracts', db.installmentContracts, contractToRow, parentErrors);
+
+            var txRows = [];
+            for (var ti = 0; ti < db.transactions.length; ti++) {
+                var trow = txToRow(db.transactions[ti]);
+                if (trow.client_id !== null && !validClientIds[trow.client_id]) trow.client_id = null;
+                var terr = _sbValidateRow('transactions', trow);
+                if (terr) parentErrors.push({ table: 'transactions', id: db.transactions[ti].id, error: terr });
+                else txRows.push(trow);
+            }
+            txRows = _sbDedupById(txRows);
+
+            var expRows = [];
+            for (var ei = 0; ei < db.expenses.length; ei++) {
+                var erow = expenseToRow(db.expenses[ei]);
+                var eerr = _sbValidateRow('expenses', erow);
+                if (eerr) parentErrors.push({ table: 'expenses', id: db.expenses[ei].id, error: eerr });
+                else expRows.push(erow);
+            }
+            expRows = _sbDedupById(expRows);
+
+            if (parentErrors.length) {
+                console.warn('[sbSaveAll] سجلات مستثناة من الحفظ بسبب بيانات معطوبة:', parentErrors);
             }
 
-            var txIds = db.transactions.map(function(t) { return t.id; });
-            var expIds = db.expenses.map(function(e) { return e.id; });
-            var clientIds = db.clients.map(function(c) { return c.id; });
-            var mdIds = db.manualDebts.map(function(d) { return d.id; });
-            var instIds = db.installmentContracts.map(function(c) { return c.id; });
-
-            /* 4) دفعات الديون على التذاكر */
-            var debtPayRows = [];
-            for (var t = 0; t < db.transactions.length; t++) {
-                var tx = db.transactions[t];
-                if (!Array.isArray(tx.debtPayments)) continue;
-                for (var tp = 0; tp < tx.debtPayments.length; tp++) {
-                    debtPayRows.push({ transaction_id: tx.id, date: tx.debtPayments[tp].date, amount: _sbn(tx.debtPayments[tp].amount), notes: tx.debtPayments[tp].notes || '' });
-                }
-            }
-
-            /* 5) دفعات المصاريف + السجلات الشهرية */
-            var expPayRows = [];
-            var expMonthRows = [];
-            for (var e = 0; e < db.expenses.length; e++) {
-                var ex = db.expenses[e];
-                if (Array.isArray(ex.payments)) {
-                    for (var ep = 0; ep < ex.payments.length; ep++) {
-                        expPayRows.push({ expense_id: ex.id, date: ex.payments[ep].date, amount: _sbn(ex.payments[ep].amount), notes: ex.payments[ep].notes || '' });
-                    }
-                }
-                if (Array.isArray(ex.monthlyRecords)) {
-                    for (var em = 0; em < ex.monthlyRecords.length; em++) {
-                        expMonthRows.push({ expense_id: ex.id, month: ex.monthlyRecords[em].month, status: ex.monthlyRecords[em].status || 'unpaid', paid_date: ex.monthlyRecords[em].paidDate || null });
-                    }
-                }
-            }
-
-            /* 6) خدمات العملاء */
-            var clientSvcRows = [];
-            for (var c = 0; c < db.clients.length; c++) {
-                var cl = db.clients[c];
-                if (!Array.isArray(cl.services)) continue;
-                for (var cs = 0; cs < cl.services.length; cs++) {
-                    clientSvcRows.push({ id: _sbn(cl.services[cs].id), client_id: cl.id, date: cl.services[cs].date || null, description: cl.services[cs].description || '', amount: _sbn(cl.services[cs].amount), payment_method: cl.services[cs].paymentMethod || 'cash' });
-                }
-            }
-
-            /* 7) دفعات الديون اليدوية */
-            var mdPayRows = [];
-            for (var d = 0; d < db.manualDebts.length; d++) {
-                var debt = db.manualDebts[d];
-                if (!Array.isArray(debt.payments)) continue;
-                for (var dp = 0; dp < debt.payments.length; dp++) {
-                    mdPayRows.push({ manual_debt_id: debt.id, date: debt.payments[dp].date, amount: _sbn(debt.payments[dp].amount), notes: debt.payments[dp].notes || '' });
-                }
-            }
-
-            /* 8) أقساط العقود + دفعاتها
-               الأقساط الجديدة (بلا معرف محلي) تُدرج دون id ليولّدها الخادم (bigserial)،
-               ثم تُربط المعرفات الحقيقية الصادرة من الخادم بالأقساط في الذاكرة،
-               ثم تُبنى دفعات الأقساط بالمعرفات الحقيقية. */
-            var instRows = [];
-            for (var i2 = 0; i2 < db.installmentContracts.length; i2++) {
-                var con = db.installmentContracts[i2];
-                if (!Array.isArray(con.installments)) continue;
-                for (var ii = 0; ii < con.installments.length; ii++) {
-                    var inst = con.installments[ii];
-                    var row = {
-                        contract_id: con.id,
-                        number: _sbn(inst.number),
-                        due_date: inst.dueDate || null,
-                        amount: _sbn(inst.amount),
-                        paid: _sbn(inst.paid),
-                        status: inst.status || 'unpaid'
-                    };
-                    var instId = _sbn(inst.id);
-                    if (instId > 0) row.id = instId;
-                    instRows.push(row);
-                }
-            }
-
-            /* 9) سلة المحذوفات + سجل النشاط + النسخ الاحتياطية */
-            var deletedRows = db.deletedItems.map(function(item) {
-                var ms = _sbn(item.deletedAt) || Date.now();
-                return { id: _sbn(item.id), item_type: item.type, data: item.data, display_name: item.displayName || '', deleted_at: new Date(ms).toISOString() };
-            });
-            var activityRows = db.activityLog.map(function(entry) {
-                return { id: _sbn(entry.id), date: entry.date || '', time: entry.time || '', employee: entry.employee || '', action: entry.action || '', description: entry.description || '' };
-            });
-
-            /* تنفيذ بالتسلسل لضمان ترتيب المفاتيح الأجنبية */
-            return sbReplaceChildren(client, 'debt_payments', 'transaction_id', txIds, debtPayRows)
-                .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'expense_payments', 'expense_id', expIds, expPayRows); })
-                .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'expense_monthly_records', 'expense_id', expIds, expMonthRows); })
-                .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'client_services', 'client_id', clientIds, clientSvcRows); })
-                .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'manual_debt_payments', 'manual_debt_id', mdIds, mdPayRows); })
-                .then(function(r) {
-                    if (r && r.error) throw r.error;
-                    /* دفعات الأقساط تُحذف أولاً ثم تُعاد إدراجها بعد الأقساط */
-                    var delInstPay = instIds.length
-                        ? client.from('installment_payments').delete().in('contract_id', instIds)
-                        : Promise.resolve();
-                    return delInstPay;
-                })
+            return sbUpsertRows(client, 'clients', clientRows)
+                .then(function(r) { if (r && r.error) throw r.error; return sbUpsertRows(client, 'manual_debts', mdRows); })
+                .then(function(r) { if (r && r.error) throw r.error; return sbUpsertRows(client, 'installment_contracts', conRows); })
+                .then(function(r) { if (r && r.error) throw r.error; return sbUpsertRows(client, 'transactions', txRows); })
+                .then(function(r) { if (r && r.error) throw r.error; return sbUpsertRows(client, 'expenses', expRows); })
                 .then(function() {
-                    /* .select() ضروري — بدونه يُرجع Supabase data:null ولا نستطيع
-                       التقاط معرّفات الخادم لتوثيقها على الأقساط في الذاكرة */
-                    return client.from('installments').upsert(instRows, { onConflict: 'id' }).select();
-                })
-                .then(function(r) {
-                    if (r && r.error) throw r.error;
-                    /* ربط المعرفات الصادرة من الخادم بالأقساط في الذاكرة */
-                    if (r && Array.isArray(r.data) && r.data.length) {
-                        var idMap = {};
-                        for (var bi = 0; bi < r.data.length; bi++) {
-                            var row2 = r.data[bi];
-                            idMap[String(row2.contract_id) + ':' + _sbn(row2.number)] = _sbn(row2.id);
-                        }
-                        for (var ci = 0; ci < db.installmentContracts.length; ci++) {
-                            var con2 = db.installmentContracts[ci];
-                            if (!Array.isArray(con2.installments)) continue;
-                            for (var cj = 0; cj < con2.installments.length; cj++) {
-                                var inst2 = con2.installments[cj];
-                                var realId = idMap[String(con2.id) + ':' + _sbn(inst2.number)];
-                                if (realId) inst2.id = realId;
-                            }
+
+                    /* 3.3) قوائم المعرفات والجداول الأبناء — فقط للصفوف المضمّنة في الحفظ */
+                    var txIds = txRows.map(function(r) { return r.id; });
+                    var expIds = expRows.map(function(r) { return r.id; });
+                    var clientIds = clientRows.map(function(r) { return r.id; });
+                    var mdIds = mdRows.map(function(r) { return r.id; });
+                    var instIds = conRows.map(function(r) { return r.id; });
+
+                    var dbTx = _sbFilterByIds(db.transactions, txIds);
+                    var dbExp = _sbFilterByIds(db.expenses, expIds);
+                    var dbCli = _sbFilterByIds(db.clients, clientIds);
+                    var dbMd = _sbFilterByIds(db.manualDebts, mdIds);
+                    var dbCon = _sbFilterByIds(db.installmentContracts, instIds);
+
+                    var childErrors = [];
+
+                    /* 4) دفعات الديون على التذاكر */
+                    var debtPayRows = _sbBuildPayRows('debt_payments', dbTx, 'transaction_id', 'debtPayments', childErrors);
+
+                    /* 5) دفعات المصاريف + السجلات الشهرية */
+                    var expPayRows = _sbBuildPayRows('expense_payments', dbExp, 'expense_id', 'payments', childErrors);
+                    var expMonthRows = [];
+                    for (var e = 0; e < dbExp.length; e++) {
+                        var ex = dbExp[e];
+                        if (!Array.isArray(ex.monthlyRecords)) continue;
+                        var seenMonths = {};
+                        for (var em = 0; em < ex.monthlyRecords.length; em++) {
+                            var mr = ex.monthlyRecords[em];
+                            var mk = String(mr.month || '');
+                            if (seenMonths[mk]) continue;
+                            seenMonths[mk] = true;
+                            var mrow = { expense_id: ex.id, month: mk, status: mr.status === 'paid' ? 'paid' : 'unpaid', paid_date: mr.paidDate || null };
+                            var merr = _sbValidateRow('expense_monthly_records', mrow);
+                            if (merr) childErrors.push({ table: 'expense_monthly_records', id: mk, error: merr });
+                            else expMonthRows.push(mrow);
                         }
                     }
-                    /* بناء دفعات الأقساط بالمعرفات الحقيقية بعد معرفتها */
-                    var instPayRows = [];
-                    var mkInstPayRow = function(cid, iid, py) {
-                        var row = {
-                            contract_id: cid,
-                            installment_id: iid,
-                            date: py.date,
-                            amount: _sbn(py.amount),
-                            employee: py.employee || '',
-                            notes: py.notes || ''
-                        };
-                        if (py.time) {
-                            var ts = new Date(String(py.date) + 'T' + String(py.time) + ':00');
-                            if (!isNaN(ts.getTime())) row.created_at = ts.toISOString();
+
+                    /* 6) خدمات العملاء */
+                    var clientSvcRows = [];
+                    for (var c = 0; c < dbCli.length; c++) {
+                        var cl = dbCli[c];
+                        if (!Array.isArray(cl.services)) continue;
+                        for (var cs = 0; cs < cl.services.length; cs++) {
+                            var sv = cl.services[cs];
+                            var srow = { id: _sbn(sv.id), client_id: cl.id, date: sv.date || new Date().toISOString().slice(0, 10), description: sv.description || '', amount: _sbn(sv.amount), payment_method: sv.paymentMethod === 'debt' ? 'debt' : 'cash' };
+                            var serr = _sbValidateRow('client_services', srow);
+                            if (serr) childErrors.push({ table: 'client_services', id: _sbn(sv.id), error: serr });
+                            else clientSvcRows.push(srow);
                         }
-                        return row;
-                    };
-                    for (var i3 = 0; i3 < db.installmentContracts.length; i3++) {
-                        var con3 = db.installmentContracts[i3];
-                        if (Array.isArray(con3.installments)) {
-                            for (var i4 = 0; i4 < con3.installments.length; i4++) {
-                                var inst3 = con3.installments[i4];
-                                if (!Array.isArray(inst3.payments)) continue;
-                                for (var i5 = 0; i5 < inst3.payments.length; i5++) {
-                                    instPayRows.push(mkInstPayRow(con3.id, _sbn(inst3.id), inst3.payments[i5]));
+                    }
+
+                    /* 7) دفعات الديون اليدوية */
+                    var mdPayRows = _sbBuildPayRows('manual_debt_payments', dbMd, 'manual_debt_id', 'payments', childErrors);
+
+                    /* 8) أقساط العقود + دفعاتها
+                       الأقساط الناقصة number (صيغة CSV مثلاً) تُرقَّم تلقائياً بدل إرسال 0 المكرر؛
+                       والأقساط الجديدة (بلا معرف محلي) تُدرج دون id ليولّدها الخادم (bigserial)،
+                       ثم تُربط المعرفات الحقيقية بواسطة contract_id + number (المضمون تفرده بالترقيم)،
+                       ثم تُبنى دفعات الأقساط بالمعرفات الحقيقية. */
+                    var instRows = [];
+                    var excludedInstIds = {};
+                    for (var i2 = 0; i2 < dbCon.length; i2++) {
+                        var con = dbCon[i2];
+                        if (!Array.isArray(con.installments)) continue;
+                        for (var ii = 0; ii < con.installments.length; ii++) {
+                            var inst = con.installments[ii];
+                            if (!inst) continue;
+                            var instNum = _sbn(inst.number);
+                            if (instNum < 1) { instNum = ii + 1; inst.number = instNum; }
+                            var irow = {
+                                contract_id: con.id,
+                                number: instNum,
+                                due_date: inst.dueDate || null,
+                                amount: _sbn(inst.amount),
+                                paid: _sbn(inst.paid),
+                                status: ['paid', 'unpaid', 'partial', 'overdue', 'cancelled'].indexOf(inst.status) !== -1 ? inst.status : 'unpaid'
+                            };
+                            var instId = _sbn(inst.id);
+                            if (instId > 0) irow.id = instId;
+                            var ierr = _sbValidateRow('installments', irow);
+                            if (ierr) {
+                                excludedInstIds[instId] = true;
+                                parentErrors.push({ table: 'installments', id: instId, error: ierr });
+                                continue;
+                            }
+                            instRows.push(irow);
+                        }
+                    }
+
+                    /* 9) سلة المحذوفات + سجل النشاط */
+                    var deletedRows = [];
+                    var seenDeleted = {};
+                    for (var dm = 0; dm < db.deletedItems.length; dm++) {
+                        var item = db.deletedItems[dm];
+                        var did = _sbn(item.id);
+                        if (did > 0 && seenDeleted[did]) continue;
+                        if (did > 0) seenDeleted[did] = true;
+                        if (_SB_ENUM.deleted_items.item_type.indexOf(item.type) === -1) continue;
+                        var ms = _sbn(item.deletedAt) || Date.now();
+                        deletedRows.push({ id: did, item_type: item.type, data: item.data || {}, display_name: item.displayName || '', deleted_at: new Date(ms).toISOString() });
+                    }
+                    var activityRows = db.activityLog.map(function(entry) {
+                        return { id: _sbn(entry.id), date: entry.date || '', time: entry.time || '', employee: entry.employee || '', action: entry.action || '', description: entry.description || '' };
+                    });
+
+                    if (childErrors.length) {
+                        console.warn('[sbSaveAll] سجلات أبناء مستثناة من الحفظ بسبب بيانات معطوبة:', childErrors);
+                    }
+
+                    /* تنفيذ بالتسلسل لضمان ترتيب المفاتيح الأجنبية */
+                    return sbReplaceChildren(client, 'debt_payments', 'transaction_id', txIds, debtPayRows)
+                        .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'expense_payments', 'expense_id', expIds, expPayRows); })
+                        .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'expense_monthly_records', 'expense_id', expIds, expMonthRows); })
+                        .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'client_services', 'client_id', clientIds, clientSvcRows); })
+                        .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'manual_debt_payments', 'manual_debt_id', mdIds, mdPayRows); })
+                        .then(function(r) {
+                            if (r && r.error) throw r.error;
+                            /* دفعات الأقساط تُحذف أولاً ثم تُعاد إدراجها بعد الأقساط */
+                            var delInstPay = instIds.length
+                                ? client.from('installment_payments').delete().in('contract_id', instIds)
+                                : Promise.resolve();
+                            return delInstPay;
+                        })
+                        .then(function() {
+                            /* .select() ضروري — بدونه يُرجع Supabase data:null ولا نستطيع
+                               التقاط معرّفات الخادم لتوثيقها على الأقساط في الذاكرة */
+                            return client.from('installments').upsert(instRows, { onConflict: 'id' }).select();
+                        })
+                        .then(function(r) {
+                            if (r && r.error) throw r.error;
+                            /* ربط المعرفات الصادرة من الخادم بالأقساط في الذاكرة */
+                            if (r && Array.isArray(r.data) && r.data.length) {
+                                var idMap = {};
+                                for (var bi = 0; bi < r.data.length; bi++) {
+                                    var row2 = r.data[bi];
+                                    idMap[String(row2.contract_id) + ':' + _sbn(row2.number)] = _sbn(row2.id);
+                                }
+                                for (var ci = 0; ci < db.installmentContracts.length; ci++) {
+                                    var con2 = db.installmentContracts[ci];
+                                    if (!Array.isArray(con2.installments)) continue;
+                                    for (var cj = 0; cj < con2.installments.length; cj++) {
+                                        var inst2 = con2.installments[cj];
+                                        var realId = idMap[String(con2.id) + ':' + _sbn(inst2.number)];
+                                        if (realId) inst2.id = realId;
+                                    }
                                 }
                             }
-                        }
-                        if (Array.isArray(con3.payments)) {
-                            for (var i6 = 0; i6 < con3.payments.length; i6++) {
-                                instPayRows.push(mkInstPayRow(con3.id, null, con3.payments[i6]));
+                            /* بناء دفعات الأقساط بالمعرفات الحقيقية بعد معرفتها */
+                            var instPayRows = [];
+                            var mkInstPayRow = function(cid, iid, py) {
+                                if (_sbn(py.amount) < 0) return null;
+                                var row = {
+                                    contract_id: cid,
+                                    installment_id: iid,
+                                    date: py.date,
+                                    amount: _sbn(py.amount),
+                                    employee: py.employee || '',
+                                    notes: py.notes || ''
+                                };
+                                if (py.time) {
+                                    var ts = new Date(String(py.date) + 'T' + String(py.time) + ':00');
+                                    if (!isNaN(ts.getTime())) row.created_at = ts.toISOString();
+                                }
+                                return row;
+                            };
+                            for (var i3 = 0; i3 < dbCon.length; i3++) {
+                                var con3 = dbCon[i3];
+                                if (Array.isArray(con3.installments)) {
+                                    for (var i4 = 0; i4 < con3.installments.length; i4++) {
+                                        var inst3 = con3.installments[i4];
+                                        if (excludedInstIds[_sbn(inst3.id)]) continue;
+                                        if (!Array.isArray(inst3.payments)) continue;
+                                        for (var i5 = 0; i5 < inst3.payments.length; i5++) {
+                                            var p3 = mkInstPayRow(con3.id, _sbn(inst3.id), inst3.payments[i5]);
+                                            if (p3) instPayRows.push(p3);
+                                        }
+                                    }
+                                }
+                                if (Array.isArray(con3.payments)) {
+                                    for (var i6 = 0; i6 < con3.payments.length; i6++) {
+                                        var p4 = mkInstPayRow(con3.id, null, con3.payments[i6]);
+                                        if (p4) instPayRows.push(p4);
+                                    }
+                                }
                             }
-                        }
-                    }
-                    if (instPayRows.length) {
-                        return client.from('installment_payments').insert(instPayRows);
-                    }
-                    return Promise.resolve();
-                })
-                .then(function() {
-                    /* 9.5) سلة المحذوفات + سجل النشاط — إدراج/تحديث */
-                    return sbUpsertRows(client, 'deleted_items', deletedRows);
-                })
-                .then(function(r) {
-                    if (r && r.error) throw r.error;
-                    return sbUpsertRows(client, 'activity_log', activityRows);
+                            if (instPayRows.length) {
+                                return client.from('installment_payments').insert(instPayRows);
+                            }
+                            return Promise.resolve();
+                        })
+                        .then(function() {
+                            /* 9.5) سلة المحذوفات + سجل النشاط — إدراج/تحديث */
+                            return sbUpsertRows(client, 'deleted_items', deletedRows);
+                        })
+                        .then(function(r) {
+                            if (r && r.error) throw r.error;
+                            return sbUpsertRows(client, 'activity_log', activityRows);
+                        });
                 });
         }).then(function() {
             /* 10) حذف الأيتام (السجلات غير الموجودة في الذاكرة) */
@@ -879,16 +1088,57 @@ function sbRunSync() {
         if (!_syncToastShown) {
             _syncToastShown = true;
             if (typeof toast === 'function') {
-                toast('تعذر حفظ البيانات على الخادم — سيُعاد المحاولة تلقائياً', 'error');
+                var detail = (err && err.message) ? String(err.message) : ((err && err.details) ? String(err.details) : '');
+                if (detail && detail.length > 220) detail = detail.slice(0, 220) + '…';
+                toast('تعذر حفظ البيانات على الخادم' + (detail ? ' — ' + detail : ''), 'error');
             }
         }
-    }).then(function() {
-        _syncRunning = false;
-        if (_syncQueued) {
-            _syncQueued = false;
-            _syncTimer = setTimeout(sbRunSync, 60);
-        }
-    });
+    }).then(_sbFinishSync, _sbFinishSync);
+}
+
+/* إنهاء دورة المزامنة دائماً (نجاحاً أو فشلاً):
+   تحرير القفل، إشعار المنتظرين، وتشغيل أي مزامنة مُجدولة لاحقاً */
+function _sbFinishSync() {
+    _syncRunning = false;
+    var waiters = _sbSyncWaiters;
+    _sbSyncWaiters = [];
+    for (var w = 0; w < waiters.length; w++) waiters[w]();
+    if (_syncQueued) {
+        _syncQueued = false;
+        _syncTimer = setTimeout(sbRunSync, 60);
+    }
+}
+
+var _sbSyncWaiters = [];
+
+function sbWaitForSyncIdle() {
+    if (!_syncRunning) return Promise.resolve();
+    return new Promise(function(resolve) { _sbSyncWaiters.push(resolve); });
+}
+
+/* مزامنة فورية تُرجع Promise بحفظ فعلي مكتمل — يستخدمها تدفق الاستيراد
+   للانتظار والتحقق من النتيجة قبل إعادة تحميل الصفحة.
+   تتقاسم قائمة المزامنة مع sbRunSync لمنع تداخل الحفظ المتزامن،
+   وتُعيد الخطأ للاستدعاء بدل عرض رسالة عامة. */
+function sbSyncNow() {
+    if (!db) return Promise.resolve();
+    if (!isSupabaseConfigured()) return Promise.resolve();
+
+    var run = function() {
+        _syncRunning = true;
+        return sbSaveAll().then(function() {
+            if (_syncToastShown) _syncToastShown = false;
+        }).catch(function(err) {
+            console.error('Supabase sync failed:', err);
+            throw err;
+        }).then(_sbFinishSync, _sbFinishSync);
+    };
+
+    if (_syncRunning) {
+        _syncQueued = true;
+        return sbWaitForSyncIdle().then(run);
+    }
+    return run();
 }
 
 window.addEventListener('pagehide', function() {
@@ -896,5 +1146,5 @@ window.addEventListener('pagehide', function() {
         clearTimeout(_syncTimer);
         _syncTimer = null;
     }
-    if (db && !_syncRunning) sbRunSync();
+    if (db && !_syncRunning) sbSyncNow().catch(function() {});
 });

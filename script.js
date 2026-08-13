@@ -1876,14 +1876,14 @@ function importJSON(e) {
                         ? normalizeImportedTransactions(data.transactions) : [];
                     var importedExps = Array.isArray(data.expenses)
                         ? normalizeImportedExpenses(data.expenses) : [];
-                    var importedManualDebts = Array.isArray(data.manualDebts)
-                        ? data.manualDebts : [];
-                    var importedInstallmentContracts = Array.isArray(data.installmentContracts)
-                        ? data.installmentContracts : [];
-                    var importedDeletedItems = Array.isArray(data.deletedItems)
-                        ? data.deletedItems : [];
-                    var importedExpCat = Array.isArray(data.expenseCategories)
-                        ? data.expenseCategories : [];
+                    var importedManualDebts = typeof normalizeImportedManualDebts === 'function'
+                        ? normalizeImportedManualDebts(data.manualDebts) : [];
+                    var importedInstallmentContracts = typeof normalizeImportedInstallmentContracts === 'function'
+                        ? normalizeImportedInstallmentContracts(data.installmentContracts) : [];
+                    var importedDeletedItems = typeof normalizeImportedDeletedItems === 'function'
+                        ? normalizeImportedDeletedItems(data.deletedItems) : [];
+                    var importedExpCat = typeof normalizeImportedExpenseCategories === 'function'
+                        ? normalizeImportedExpenseCategories(data.expenseCategories) : [];
 
                     db.settings = data.settings || { currency: 'IQD', language: 'ar' };
                     db.transactions = importedTxs;
@@ -1901,7 +1901,33 @@ function importJSON(e) {
                     loadExpenseCategories();
                     generateMonthlyRecurringExpenses();
                     refreshApplicationState();
-                    toast('تم استيراد جميع البيانات بنجاح', 'success');
+
+                    function extractErrDetail(err) {
+                        var d = (err && err.message) ? String(err.message) : ((err && err.details) ? String(err.details) : '');
+                        if (d.length > 220) d = d.slice(0, 220) + '…';
+                        return d;
+                    }
+
+                    var importDone = function(okMsg, errDetail) {
+                        if (errDetail) {
+                            toast('تم تحميل البيانات محلياً لكن تعذر حفظها على الخادم' + (errDetail ? ' — ' + errDetail : ''), 'error');
+                        } else {
+                            toast(okMsg, 'success');
+                        }
+                    };
+
+                    if (typeof sbSyncNow === 'function' && isSupabaseConfigured()) {
+                        /* حفظ فوري وانتظاره: الاستيراد لا يُعتبر ناجحاً إلا إذا ثبت حفظه على الخادم */
+                        sbSyncNow().then(function() {
+                            importDone('تم استيراد جميع البيانات وحفظها على الخادم بنجاح', '');
+                            /* إعادة تحميل للتحقق من بقاء البيانات فعلياً على الخادم بعد الاستيراد */
+                            setTimeout(function() { location.reload(); }, 1500);
+                        }).catch(function(err) {
+                            importDone('', extractErrDetail(err));
+                        });
+                    } else {
+                        importDone('تم استيراد جميع البيانات بنجاح', '');
+                    }
                 }
             );
         } catch (err) {
@@ -5184,8 +5210,17 @@ function importInstallmentCSV(file) {
                 'سيتم استيراد ' + summary + ' من ملف CSV.\n\nسيتم إنشاء نسخة احتياطية تلقائية أولاً.\n\nهل تريد المتابعة؟',
                 function(ok) {
                     if (!ok) return;
+                    function csvNumberInstallments(contract) {
+                        if (!Array.isArray(contract.installments)) return;
+                        for (var n = 0; n < contract.installments.length; n++) {
+                            var inst = contract.installments[n];
+                            if (inst && safeNum(inst.number) < 1) inst.number = n + 1;
+                        }
+                    }
+
                     for (var p = 0; p < parsed.length; p++) {
                         var contract = parsed[p];
+                        csvNumberInstallments(contract);
                         var found = false;
                         for (var x = 0; x < existing.length; x++) {
                             if (existing[x].name && contract.name && existing[x].name.trim() === contract.name.trim()) {
@@ -5221,7 +5256,19 @@ function importInstallmentCSV(file) {
                             msg += '• ' + report.skippedReasons[r] + '\n';
                         }
                     }
-                    toast(msg, 'success');
+                    if (typeof sbSyncNow === 'function' && isSupabaseConfigured()) {
+                        /* حفظ فوري وانتظاره ثم إعادة تحميل للتحقق من بقاء العقود على الخادم */
+                        sbSyncNow().then(function() {
+                            toast(msg, 'success');
+                            setTimeout(function() { location.reload(); }, 1500);
+                        }).catch(function(err) {
+                            var detail = (err && err.message) ? String(err.message) : ((err && err.details) ? String(err.details) : '');
+                            if (detail.length > 220) detail = detail.slice(0, 220) + '…';
+                            toast('تم استيراد العقود محلياً لكن تعذر حفظها على الخادم' + (detail ? ' — ' + detail : ''), 'error');
+                        });
+                    } else {
+                        toast(msg, 'success');
+                    }
                 }
             );
         } catch (err) {
