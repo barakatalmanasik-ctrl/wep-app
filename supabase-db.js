@@ -589,6 +589,23 @@ function attachInstallmentChildren(contracts, installs, pays) {
             for (var k = 0; k < list.length; k++) {
                 if (instById[list[k].id]) instById[list[k].id].instIndex = k;
             }
+            /* تعويض قيم الأقساط الناقصة (amount صفر/مفقود) من أرقام العقد المعتمدة
+               (الإجمالي − المقدمة ÷ عدد الأقساط) — يمنع بقاء عدد الأقساط المدفوعة
+               صفراً إذا كانت قيمة القسط في الخادم صفراً رغم وجود دفعات عليه. */
+            var needsFill = false;
+            for (var fi = 0; fi < list.length; fi++) if (_sbn(list[fi].amount) <= 0) { needsFill = true; break; }
+            if (needsFill) {
+                var conTot = _sbn(contracts[c].total);
+                var conAdv = _sbn(contracts[c].advance);
+                var rem = Math.max(0, conTot - conAdv);
+                var n = list.length;
+                var base = n > 0 ? Math.trunc(rem / n) : 0;
+                for (var fi2 = 0; fi2 < list.length; fi2++) {
+                    if (_sbn(list[fi2].amount) <= 0) {
+                        list[fi2].amount = (fi2 === list.length - 1) ? Math.max(0, rem - base * (list.length - 1)) : base;
+                    }
+                }
+            }
         }
     }
     var byContractPay = {};
