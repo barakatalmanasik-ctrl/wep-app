@@ -606,6 +606,29 @@ function attachInstallmentChildren(contracts, installs, pays) {
                     }
                 }
             }
+        } else if (typeof generateInstSchedule === 'function') {
+            /* عقد بلا أقساط على الخادم رغم أن عدد أقساطه (count) أكبر من صفر
+               والمتبقي موجب — تُعاد توليد الجدول من أرقام العقد المعتمدة كي
+               تُوضع دفعاته العقدية في أقساط ويُحسب عدد الأقساط المدفوعة والمتبقية
+               بدل بقائها صفراً رغم وجود دفعات فعلية. الأقساط المولّدة بلا معرف
+               تُدرج على الخادم تلقائياً في دورة الحفظ التالية. */
+            var genRem = Math.max(0, _sbn(contracts[c].total) - _sbn(contracts[c].advance));
+            if (_sbn(contracts[c].count) > 0 && genRem > 0) {
+                var gen = generateInstSchedule(
+                    _sbn(contracts[c].total),
+                    _sbn(contracts[c].advance),
+                    _sbn(contracts[c].count),
+                    contracts[c].startDate || '',
+                    contracts[c].period || 'monthly'
+                );
+                if (Array.isArray(gen) && gen.length) {
+                    contracts[c].installments = gen;
+                    /* تسجيل الأقساط المولّدة في byContract كي يجدها الربط
+                       التسلسلي أدناه وتُوضع دفعات العقد بداخلها فعلياً (inst.payments)
+                       بدل بقائها عقدية — فتُحفظ معها بالمعرف الصحيح بعد الإدراج. */
+                    byContract[Number(contracts[c].id)] = gen;
+                }
+            }
         }
     }
     var byContractPay = {};
@@ -621,10 +644,15 @@ function attachInstallmentChildren(contracts, installs, pays) {
             notes: pays[p].notes || ''
         };
         var iid = pays[p].installment_id;
-        if (iid !== null && iid !== undefined && instById[Number(iid)]) {
-            var holder = byContract[instById[Number(iid)].contractId];
-            if (holder && holder[instById[Number(iid)].instIndex]) {
-                holder[instById[Number(iid)].instIndex].payments.push(pay);
+        var iidMeta = (iid !== null && iid !== undefined) ? instById[Number(iid)] : null;
+        /* لا تُربط الدفعة بمعرف قسط تابع لعقد آخر (installment_id شارد في بيانات
+           قديمة/مستوردة) — وإلا تُنقل الدفعة خطأً إلى عقد آخر ويضيع سجلها من
+           عقدها الصحيح وتُحتسب ضمن مدفوعات عقد غير عقدها. تُربط فقط إذا كان
+           القسط من نفس العقد الذي تحمل إليه الدفعة. */
+        if (iidMeta && iidMeta.contractId === pcid) {
+            var holder = byContract[iidMeta.contractId];
+            if (holder && holder[iidMeta.instIndex]) {
+                holder[iidMeta.instIndex].payments.push(pay);
                 continue;
             }
         }
@@ -741,7 +769,12 @@ function _sbInstDebug(contracts, installs, pays) {
                     instPays += (con.installments[j].payments || []).length;
                 }
             }
-            var conPays = (con.payments || []).length;
+            var conPays = 0;
+            if (Array.isArray(con.payments)) {
+                for (var dp = 0; dp < con.payments.length; dp++) {
+                    if (con.payments[dp].instNumber == null) conPays++;
+                }
+            }
             var meta = payByContract[Number(con.id)];
             lines.push('عقد #' + con.id + ' (' + (con.name || '') + '): أقساط=' + (con.installments || []).length +
                 ' | مدفوعة=' + instPays + ' | عقدية=' + conPays +
