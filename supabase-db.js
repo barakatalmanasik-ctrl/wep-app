@@ -592,9 +592,9 @@ function attachInstallmentChildren(contracts, installs, pays) {
         }
     }
     var byContractPay = {};
+    var unattachedByContract = {};
     for (var p = 0; p < pays.length; p++) {
         var pcid = Number(pays[p].contract_id);
-        if (!byContractPay[pcid]) byContractPay[pcid] = [];
         var pay = {
             id: (pays[p].id !== undefined && pays[p].id !== null) ? ('r' + pays[p].id) : undefined,
             date: pays[p].date,
@@ -611,7 +611,41 @@ function attachInstallmentChildren(contracts, installs, pays) {
                 continue;
             }
         }
-        byContractPay[pcid].push(pay);
+        /* دفعة فشل ربطها بمعرف قسط (installment_id مفقود أو خاطئ في البيانات
+           القديمة) — تُعالج في الربط التسلسلي المحافظ أدناه ولا تُرمى مباشرة
+           في c.payments، كي لا تتفكك دفعات الأقساط عن سجلها الحقيقي. */
+        if (!unattachedByContract[pcid]) unattachedByContract[pcid] = [];
+        unattachedByContract[pcid].push(pay);
+    }
+    /* الربط التسلسلي المحافظ: الدفعات التي لم يُطابق installment_id قسماً
+       تُلحق بأول قسط غير مكتمل في ترتيب الأرقام — يصلح البيانات التاريخية
+       (الدورة القديمة كانت تحفظ بقايا المبالغ في c.payments بدل الأقساط)
+       دون حذف أي دفعة وبقدر سعة القسط؛ ما لا يجد قسماً يتسع له يبقى دفعة عقد. */
+    for (var cid2 in unattachedByContract) {
+        var cl = byContract[Number(cid2)];
+        var ups = unattachedByContract[cid2];
+        if (!Array.isArray(cl) || !cl.length) {
+            if (!byContractPay[Number(cid2)]) byContractPay[Number(cid2)] = [];
+            for (var uu = 0; uu < ups.length; uu++) byContractPay[Number(cid2)].push(ups[uu]);
+            continue;
+        }
+        for (var u = 0; u < ups.length; u++) {
+            var pyu = ups[u];
+            var placed = false;
+            for (var t = 0; t < cl.length && !placed; t++) {
+                var instT = cl[t];
+                if (instT.status === 'cancelled') continue;
+                var sumT = 0;
+                for (var w = 0; w < instT.payments.length; w++) sumT += _sbn(instT.payments[w].amount);
+                if (sumT >= _sbn(instT.amount)) continue;
+                instT.payments.push(pyu);
+                placed = true;
+            }
+            if (!placed) {
+                if (!byContractPay[Number(cid2)]) byContractPay[Number(cid2)] = [];
+                byContractPay[Number(cid2)].push(pyu);
+            }
+        }
     }
     /* المدفوع الفعلي لكل قسط = سجل الدفعات المرتبط به (المصدر الموثوق)،
        مع الاحتفاظ بالعمود المحفوظ كمكمّل فقط — فيُعالج أي تباين قديم. */
@@ -624,10 +658,43 @@ function attachInstallmentChildren(contracts, installs, pays) {
             var sumP = 0;
             for (var r2 = 0; r2 < instP.payments.length; r2++) sumP += _sbn(instP.payments[r2].amount);
             instP.paid = Math.max(_sbn(instP.paid), sumP);
+            /* مزامنة حالة القسط مع المدفوع الفعلي بعد الربط — فلا يظهر قسط
+               مسدد كاملاً كمتأخر/غير مدفوع بسبب عمود حالة قديم، مع الإبقاء
+               على 'cancelled' و'overdue' للقسط الذي لم يُسدد فعلاً. */
+            if (_sbn(instP.amount) > 0) {
+                if (instP.paid >= _sbn(instP.amount)) instP.status = 'paid';
+                else if (instP.paid > 0) instP.status = 'partial';
+                else if (instP.status === 'paid') instP.status = 'unpaid';
+            }
         }
     }
+    /* c.payments = تجميع مشتق من كل دفعات الأقساط المرتبطة (مصدر واحد متسق
+       للسجل والوصولات والحسابات) + الدفعات العقدية الحقيقية (بلا قسط).
+       كل دفعة في c.payments تحمل وسم instNumber كي تتجنب الحسابات الازدواج —
+       فلا تُعدّ الدفعة المرتبطة بقسط من مصدرين منفصلين بعد الآن. */
     for (var c2 = 0; c2 < contracts.length; c2++) {
-        if (byContractPay[Number(contracts[c2].id)]) contracts[c2].payments = byContractPay[Number(contracts[c2].id)];
+        var con = contracts[c2];
+        var agg = [];
+        if (Array.isArray(con.installments)) {
+            for (var ai = 0; ai < con.installments.length; ai++) {
+                var aInst = con.installments[ai];
+                if (!Array.isArray(aInst.payments)) continue;
+                for (var ap = 0; ap < aInst.payments.length; ap++) {
+                    var apy = aInst.payments[ap];
+                    apy.instNumber = aInst.number;
+                    apy.instId = aInst.id;
+                    agg.push(apy);
+                }
+            }
+        }
+        var cp = byContractPay[Number(con.id)];
+        if (Array.isArray(cp)) {
+            for (var cpi = 0; cpi < cp.length; cpi++) {
+                cp[cpi].instNumber = null;
+                agg.push(cp[cpi]);
+            }
+        }
+        con.payments = agg;
     }
 }
 
@@ -1043,6 +1110,10 @@ function sbSaveAll() {
                                 }
                                 if (Array.isArray(con3.payments)) {
                                     for (var i6 = 0; i6 < con3.payments.length; i6++) {
+                                        /* c.payments يحتوي نسخاً مشتقة من دفعات
+                                           الأقساط (وسم instNumber) — تُتجاهل هنا
+                                           كي لا تُحفظ الدفعة نفسها مرتين */
+                                        if (con3.payments[i6].instNumber != null) continue;
                                         var p4 = mkInstPayRow(con3.id, null, con3.payments[i6]);
                                         if (p4) instPayRows.push(p4);
                                     }
@@ -1245,7 +1316,14 @@ function sbVerifyCounts() {
                         }
                     }
                 }
-                if (Array.isArray(c.payments)) expected.payments += c.payments.length;
+                if (Array.isArray(c.payments)) {
+                    /* النسخ المشتقة من دفعات الأقساط (وسم instNumber) لا تُعدّ
+                       مرتين — تُحتسب فقط الدفعات العقدية الحقيقية */
+                    for (var cpi2 = 0; cpi2 < c.payments.length; cpi2++) {
+                        if (c.payments[cpi2].instNumber != null) continue;
+                        expected.payments++;
+                    }
+                }
             }
         }
         return Promise.all([

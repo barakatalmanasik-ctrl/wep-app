@@ -4158,7 +4158,12 @@ function getInstTotalPaid(c) {
         for (var i = 0; i < c.installments.length; i++) total += instEffectivePaid(c.installments[i]);
     }
     if (Array.isArray(c.payments)) {
-        for (var j = 0; j < c.payments.length; j++) total += safeNum(c.payments[j].amount);
+        /* c.payments بعد الإصلاح تجميع مشتق من دفعات الأقساط (وسم instNumber)
+           — تُحتسب منه فقط الدفعات العقدية الحقيقية (بلا قسط) كي لا يُحتسب
+           المدفوع من مصدرين منفصلين فيُضاعف. */
+        for (var j = 0; j < c.payments.length; j++) {
+            if (c.payments[j].instNumber == null) total += safeNum(c.payments[j].amount);
+        }
     }
     return total;
 }
@@ -4512,12 +4517,20 @@ function undoInstPayment(contractId, instIdx) {
         }
     }
     if (Array.isArray(c.payments) && c.payments.length > 0) {
-        c.payments.pop();
-        setInstallmentContracts(contracts);
-        refreshApplicationState();
-        showInstDetail(contractId);
-        toast('تم التراجع عن آخر دفعة', 'info');
-        return;
+        /* التراجع يمسّ آخر دفعة عقدية حقيقية فقط (instNumber == null) —
+           بقية دفعات c.payments نسخ مشتقة من الأقساط ولا تُلمس هنا. */
+        var lastIdx = -1;
+        for (var k2 = c.payments.length - 1; k2 >= 0; k2--) {
+            if (c.payments[k2].instNumber == null) { lastIdx = k2; break; }
+        }
+        if (lastIdx >= 0) {
+            c.payments.splice(lastIdx, 1);
+            setInstallmentContracts(contracts);
+            refreshApplicationState();
+            showInstDetail(contractId);
+            toast('تم التراجع عن آخر دفعة', 'info');
+            return;
+        }
     }
     toast('لا توجد دفعات للتراجع', 'warning');
 }
@@ -4646,6 +4659,10 @@ function collectInstPayments(c) {
     }
     if (Array.isArray(c.payments)) {
         for (var k = 0; k < c.payments.length; k++) {
+            /* c.payments بعد الإصلاح تجميع مشتق من دفعات الأقساط — تُهمل
+               النسخ المكررة (وسم instNumber غير فارغ) ولا تُضمَّن إلا الدفعات
+               العقدية الحقيقية كي لا يتكرر أي دفعة في سجل الوصولات. */
+            if (c.payments[k].instNumber != null) continue;
             list.push({
                 pay: c.payments[k],
                 contractId: safeNum(c.id),
