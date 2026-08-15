@@ -696,6 +696,42 @@ function attachInstallmentChildren(contracts, installs, pays) {
         }
         con.payments = agg;
     }
+    _sbInstDebug(contracts, installs, pays);
+}
+
+/* سجل تشخيصي مؤقت: يعرض في الـ Console نتيجة ربط كل عقد —
+   عدد الأقساط، عدد الدفعات المربوطة داخلها، وعدد الدفعات التي
+   بقيت على مستوى العقد، مع أمثلة عن installment_id الواردة.
+   يُزال بعد التأكد من صحة الربط. */
+function _sbInstDebug(contracts, installs, pays) {
+    try {
+        var payByContract = {};
+        for (var i = 0; i < pays.length; i++) {
+            var pc = Number(pays[i].contract_id);
+            if (!payByContract[pc]) payByContract[pc] = { count: 0, iidSamples: [], iidNull: 0, iidBad: 0 };
+            var pp = payByContract[pc];
+            pp.count++;
+            if (pays[i].installment_id === null || pays[i].installment_id === undefined) pp.iidNull++;
+            else if (_sbn(pays[i].installment_id) < 1) pp.iidBad++;
+            else if (pp.iidSamples.length < 5) pp.iidSamples.push(_sbn(pays[i].installment_id));
+        }
+        for (var c = 0; c < contracts.length; c++) {
+            var con = contracts[c];
+            var instPays = 0;
+            if (Array.isArray(con.installments)) {
+                for (var j = 0; j < con.installments.length; j++) {
+                    instPays += (con.installments[j].payments || []).length;
+                }
+            }
+            var conPays = (con.payments || []).length;
+            var meta = payByContract[Number(con.id)];
+            console.log('[inst-debug] عقد #' + con.id + ' (' + (con.name || '') + '): أقساط=' + (con.installments || []).length +
+                ' | دفعات داخل الأقساط=' + instPays + ' | دفعات عقدية=' + conPays +
+                ' | في السيرفر: total=' + (meta ? meta.count : 0) + ' (null=' + (meta ? meta.iidNull : 0) + ' bad=' + (meta ? meta.iidBad : 0) + ' ids=' + JSON.stringify(meta ? meta.iidSamples : []) + ')');
+        }
+    } catch (e) {
+        console.warn('[inst-debug] فشل السجل:', e);
+    }
 }
 
 /* ═══════════════════════════════════════
