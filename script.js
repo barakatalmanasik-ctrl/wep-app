@@ -4152,19 +4152,45 @@ function instEffectivePaid(inst) {
     return Math.max(safeNum(inst.paid), instRecordsSum(inst));
 }
 
-function getInstTotalPaid(c) {
-    var total = safeNum(c.advance);
-    if (Array.isArray(c.installments)) {
-        for (var i = 0; i < c.installments.length; i++) total += instEffectivePaid(c.installments[i]);
-    }
+/* التوزيع الموحّد للمدفوع لكل قسط: يجمع الدفعات المربوطة داخل الأقساط
+   (المصدر الموثوق) + أي دفعات عقدية حقيقية غير مربوطة (وسم instNumber فارغ)
+   ويوزّعها على أول أقساط غير مكتملة ترتيبياً — فيتسق عدد الأقساط المدفوعة
+   والمبالغ والحالة معاً مهما كان مكان تخزين الدفعات في البيانات القديمة.
+   يُرجع { paid: [مدفوع كل قسط], leftover: أي فائض عقدي لا يتسع له قسط }. */
+function getInstAllocPaid(c) {
+    var insts = Array.isArray(c.installments) ? c.installments : [];
+    var paid = [];
+    for (var i = 0; i < insts.length; i++) paid.push(instEffectivePaid(insts[i]));
+    var leftover = 0;
     if (Array.isArray(c.payments)) {
-        /* c.payments بعد الإصلاح تجميع مشتق من دفعات الأقساط (وسم instNumber)
-           — تُحتسب منه فقط الدفعات العقدية الحقيقية (بلا قسط) كي لا يُحتسب
-           المدفوع من مصدرين منفصلين فيُضاعف. */
-        for (var j = 0; j < c.payments.length; j++) {
-            if (c.payments[j].instNumber == null) total += safeNum(c.payments[j].amount);
+        for (var k = 0; k < c.payments.length; k++) {
+            var py = c.payments[k];
+            if (py.instNumber != null) continue; /* نسخة مشتقة من قسط مربوط — لا تُضاف مرتين */
+            var amt = safeNum(py.amount);
+            for (var j = 0; j < paid.length && amt > 0; j++) {
+                var inst = insts[j];
+                if (!inst || inst.status === 'cancelled') continue;
+                var room = Math.max(0, safeNum(inst.amount) - paid[j]);
+                if (room <= 0) continue;
+                var use = Math.min(amt, room);
+                paid[j] += use;
+                amt -= use;
+            }
+            leftover += amt;
         }
     }
+    return { paid: paid, leftover: leftover };
+}
+
+function instAllocPaid(c, idx) {
+    var alloc = getInstAllocPaid(c);
+    return (idx >= 0 && idx < alloc.paid.length) ? alloc.paid[idx] : 0;
+}
+
+function getInstTotalPaid(c) {
+    var alloc = getInstAllocPaid(c);
+    var total = safeNum(c.advance) + alloc.leftover;
+    for (var i = 0; i < alloc.paid.length; i++) total += alloc.paid[i];
     return total;
 }
 
@@ -4175,9 +4201,10 @@ function getInstRemaining(c) {
 function getInstPaidCount(c) {
     var count = 0;
     if (Array.isArray(c.installments)) {
+        var alloc = getInstAllocPaid(c);
         for (var i = 0; i < c.installments.length; i++) {
             var inst = c.installments[i];
-            if (safeNum(inst.amount) > 0 && instEffectivePaid(inst) >= safeNum(inst.amount)) count++;
+            if (safeNum(inst.amount) > 0 && alloc.paid[i] >= safeNum(inst.amount)) count++;
         }
     }
     return count;
@@ -4474,7 +4501,7 @@ function submitInstallmentPayment(e) {
             var m = (startIdx + step) % instArr.length;
             var inst = instArr[m];
             if (inst.status === 'cancelled') continue;
-            var effPaid = instEffectivePaid(inst);
+            var effPaid = instAllocPaid(c, m);
             if (effPaid >= safeNum(inst.amount)) continue;
             var instRem = Math.max(0, safeNum(inst.amount) - effPaid);
             var portion = Math.min(leftover, instRem);
@@ -4578,9 +4605,10 @@ function showInstDetail(id) {
         c.installments.sort(function(a, b) { return safeNum(a.number) - safeNum(b.number); });
         html += '<h4 style="margin-bottom:8px"><i data-lucide="calendar-range" style="width:18px;height:18px;vertical-align:middle"></i> جدول الأقساط</h4>';
         html += '<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>';
+        var allocPaid = getInstAllocPaid(c).paid;
         for (var j = 0; j < c.installments.length; j++) {
             var inst = c.installments[j];
-            var instPaidEff = instEffectivePaid(inst);
+            var instPaidEff = (j >= 0 && j < allocPaid.length) ? allocPaid[j] : instEffectivePaid(inst);
             var instRem = Math.max(0, safeNum(inst.amount) - instPaidEff);
             var instStatus = inst.status === 'paid' || (safeNum(inst.amount) > 0 && instPaidEff >= safeNum(inst.amount))
                 ? '<span style="color:#1A6B4E;font-weight:700">مدفوع</span>'
@@ -4916,9 +4944,11 @@ function renderInstallments() {
         var tn = dn.length > 20 ? dn.substring(0, 20) + '…' : dn;
         var firstUnpaid = -1;
         if (rem > 0 && Array.isArray(item.installments)) {
+            var allocPaid2 = getInstAllocPaid(item).paid;
             for (var m = 0; m < item.installments.length; m++) {
                 var im = item.installments[m];
-                if (im.status !== 'cancelled' && instEffectivePaid(im) < safeNum(im.amount)) { firstUnpaid = m; break; }
+                var paidM = (m >= 0 && m < allocPaid2.length) ? allocPaid2[m] : instEffectivePaid(im);
+                if (im.status !== 'cancelled' && paidM < safeNum(im.amount)) { firstUnpaid = m; break; }
             }
         }
         /* ── صف الجدول (سطح المكتب) ── */
