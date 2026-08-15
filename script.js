@@ -4830,12 +4830,32 @@ function printReceiptNow() {
     window.print();
 }
 
+function renderInstDebugBanner() {
+    var summary = window.__INST_DEBUG_SUMMARY__;
+    if (!summary) return;
+    var existing = document.getElementById('instDebugBanner');
+    if (existing) return;
+    var page = document.getElementById('page-installments');
+    if (!page) return;
+    var safeText = String(summary).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    var wrap = document.createElement('div');
+    wrap.id = 'instDebugBanner';
+    wrap.style.cssText = 'background:#FFF8E1;border:1px solid #F0C14B;border-radius:8px;padding:10px 14px;margin:0 0 14px;font-size:12px;line-height:1.7;color:#5D4037;direction:ltr;text-align:left;white-space:pre-wrap;';
+    wrap.innerHTML = '<strong style="direction:rtl;display:block;text-align:right;margin-bottom:4px">تشخيص ربط الدفعات (مؤقت — أرسله للمطور):</strong>' +
+        safeText +
+        '<button onclick="this.parentNode.remove()" style="float:left;background:#5D4037;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer">إخفاء</button>';
+    var head = page.querySelector('.page-head');
+    if (head && head.nextSibling) page.insertBefore(wrap, head.nextSibling);
+    else page.insertBefore(wrap, page.firstChild);
+}
+
 function renderInstallments() {
     var body = document.getElementById('instBody');
     var cardsEl = document.getElementById('instCardList');
     var empty = document.getElementById('instEmpty');
     var tableWrap = document.getElementById('instTableWrap');
     if (!body) return;
+    renderInstDebugBanner();
     updateInstOverdue();
     var contracts = getInstallmentContracts();
     var totalValue = 0, totalPaid = 0, totalRemaining = 0;

@@ -732,6 +732,7 @@ function _sbInstDebug(contracts, installs, pays) {
             else if (_sbn(pays[i].installment_id) < 1) pp.iidBad++;
             else if (pp.iidSamples.length < 5) pp.iidSamples.push(_sbn(pays[i].installment_id));
         }
+        var lines = [];
         for (var c = 0; c < contracts.length; c++) {
             var con = contracts[c];
             var instPays = 0;
@@ -742,10 +743,13 @@ function _sbInstDebug(contracts, installs, pays) {
             }
             var conPays = (con.payments || []).length;
             var meta = payByContract[Number(con.id)];
-            console.log('[inst-debug] عقد #' + con.id + ' (' + (con.name || '') + '): أقساط=' + (con.installments || []).length +
-                ' | دفعات داخل الأقساط=' + instPays + ' | دفعات عقدية=' + conPays +
-                ' | في السيرفر: total=' + (meta ? meta.count : 0) + ' (null=' + (meta ? meta.iidNull : 0) + ' bad=' + (meta ? meta.iidBad : 0) + ' ids=' + JSON.stringify(meta ? meta.iidSamples : []) + ')');
+            lines.push('عقد #' + con.id + ' (' + (con.name || '') + '): أقساط=' + (con.installments || []).length +
+                ' | مدفوعة=' + instPays + ' | عقدية=' + conPays +
+                ' | سيرفر total=' + (meta ? meta.count : 0) + ' (null=' + (meta ? meta.iidNull : 0) + ' bad=' + (meta ? meta.iidBad : 0) + ' ids=' + JSON.stringify(meta ? meta.iidSamples : []) + ')');
         }
+        console.log('[inst-debug] ' + lines.join(' || '));
+        /* عرض التشخيص داخل الواجهة (بانر أعلى صفحة الأقساط) كي لا يتطلب Console */
+        window.__INST_DEBUG_SUMMARY__ = lines.join('\n');
     } catch (e) {
         console.warn('[inst-debug] فشل السجل:', e);
     }
