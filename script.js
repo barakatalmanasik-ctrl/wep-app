@@ -4534,6 +4534,9 @@ function undoInstPayment(contractId, instIdx) {
         var inst = c.installments[instIdx];
         if (inst.payments && inst.payments.length > 0) {
             var lastPay = inst.payments.pop();
+            /* حذف محدد: الدفعة المُرجع عنها فقط تُحذف من الخادم (بمعرفها)
+               ولا يُمسّ سجل بقية الدفعات — يُسجَّل معرفها وتُنفّذ دورة الحفظ */
+            if (typeof queueInstPayDelete === 'function') queueInstPayDelete(lastPay.serverId);
             inst.paid = instRecordsSum(inst);
             inst.status = inst.paid <= 0 ? 'unpaid' : (inst.paid >= inst.amount) ? 'paid' : 'partial';
             setInstallmentContracts(contracts);
@@ -4551,6 +4554,8 @@ function undoInstPayment(contractId, instIdx) {
             if (c.payments[k2].instNumber == null) { lastIdx = k2; break; }
         }
         if (lastIdx >= 0) {
+            var removedPay = c.payments[lastIdx];
+            if (typeof queueInstPayDelete === 'function') queueInstPayDelete(removedPay.serverId);
             c.payments.splice(lastIdx, 1);
             setInstallmentContracts(contracts);
             refreshApplicationState();

@@ -637,6 +637,7 @@ function attachInstallmentChildren(contracts, installs, pays) {
         var pcid = Number(pays[p].contract_id);
         var pay = {
             id: (pays[p].id !== undefined && pays[p].id !== null) ? ('r' + pays[p].id) : undefined,
+            serverId: (pays[p].id !== undefined && pays[p].id !== null) ? Number(pays[p].id) : null,
             date: pays[p].date,
             time: _instPayTime(pays[p].created_at),
             amount: _sbn(pays[p].amount),
@@ -906,6 +907,22 @@ function _sbBuildPayRows(table, parents, fk, childKey, errors) {
     return rows;
 }
 
+/* حذف دفعي غير مدمر — سجل صريح للدفعات التي رجَع عنها المستخدم (زر التراجع).
+   تُحذف من الخادم صفوفها الفردية فقط (بالمعرف) في دورة الحفظ التالية،
+   ولا يُمسّ أي صف آخر — عكس الحذف الجماعي السابق الذي كان يمسح كل دفعات
+   العقد ثم يعيد بناءها من الذاكرة (فيفقد أي دفعة قديمة ليست في الذاكرة). */
+var _sbQueuedInstPayDeletes = {};
+function queueInstPayDelete(serverId) {
+    var n = _sbn(serverId);
+    if (n > 0) _sbQueuedInstPayDeletes[n] = true;
+}
+function _sbConsumeInstPayDeletes() {
+    var ids = [];
+    for (var k in _sbQueuedInstPayDeletes) ids.push(Number(k));
+    _sbQueuedInstPayDeletes = {};
+    return ids;
+}
+
 function sbSaveAll() {
     if (!db) return Promise.resolve();
     return supabaseReady().then(function(client) {
@@ -1081,14 +1098,13 @@ function sbSaveAll() {
                         .then(function(r) { if (r && r.error) throw r.error; return sbReplaceChildren(client, 'manual_debt_payments', 'manual_debt_id', mdIds, mdPayRows); })
                         .then(function(r) {
                             if (r && r.error) throw r.error;
-                            /* دفعات الأقساط تُحذف أولاً ثم تُعاد إدراجها بعد الأقساط —
-                               خطأ الحذف يُفحص ولا يُبتلع (الحذف فشل = تكرار الدفعات) */
-                            var delInstPay = instIds.length
-                                ? client.from('installment_payments').delete().in('contract_id', instIds)
-                                : Promise.resolve();
-                            return delInstPay.then(function(dr) {
-                                if (dr && dr.error) throw dr.error;
-                            });
+                            /* لا حذف جماعي لدفعات الأقساط — كان يمسح كل دفعات العقد
+                               ثم يعيد بناءها من الذاكرة، فأي دفعة قديمة ليست في الذاكرة
+                               وقت الحفظ (قادمة من جهاز آخر، أو لقُسط مستثنى من الإرسال)
+                               تُفقد نهائياً مع وصولها. الحفظ الآن إضافي غير مدمر:
+                               تُحدَّث الصفوف بمعرفها، وتُدرج الجديدة فقط، ولا يُحذف
+                               إلا المُرجع عنه صراحة (queueInstPayDelete). */
+                            return Promise.resolve();
                         })
                         .then(function() {
                             /* .select() ضروري — بدونه يُرجع Supabase data:null ولا نستطيع
@@ -1115,8 +1131,14 @@ function sbSaveAll() {
                                     }
                                 }
                             }
-                            /* بناء دفعات الأقساط بالمعرفات الحقيقية بعد معرفتها */
+                            /* بناء دفعات الأقساط بالمعرفات الحقيقية بعد معرفتها —
+                               مزامنة إضافية غير مدمرة: كل دفعة تحمل serverId من التحميل
+                               تُحدَّث على صفها (upsert بمعرفها فيبقى تاريخها ووصلها
+                               ثابتين)، والدفعة الجديدة بلا معرف تُدرج، ثم يُلتقط
+                               معرفها الصادر عن الخادم ويُوثَّق في الذاكرة كي لا
+                               تُكرَّر في دورة الحفظ التالية. */
                             var instPayRows = [];
+                            var instPayRefs = [];
                             var mkInstPayRow = function(cid, iid, py) {
                                 if (_sbn(py.amount) < 0) return null;
                                 /* تاريخ الدفعة يُحفظ كما هو إن كان صالحاً (Y-M-D)؛
@@ -1134,7 +1156,12 @@ function sbSaveAll() {
                                     employee: py.employee || '',
                                     notes: py.notes || ''
                                 };
-                                if (py.time) {
+                                var svId = (py && py.serverId != null) ? _sbn(py.serverId) : 0;
+                                if (svId > 0) {
+                                    row.id = svId;
+                                } else if (py.time) {
+                                    /* created_at يُضبط للدفعة الجديدة فقط كي لا يُغيَّر
+                                       وقت الصف الأصلي عند تحديث دفعة قديمة */
                                     var ts = new Date(String(safeDate) + 'T' + String(py.time) + ':00');
                                     if (!isNaN(ts.getTime())) row.created_at = ts.toISOString();
                                 }
@@ -1145,11 +1172,13 @@ function sbSaveAll() {
                                 if (Array.isArray(con3.installments)) {
                                     for (var i4 = 0; i4 < con3.installments.length; i4++) {
                                         var inst3 = con3.installments[i4];
+                                        /* قسط مستثنى من الإرسال (بيانات معطوبة): تُترك
+                                           دفعاته على الخادم كما هي ولا تُحذف ولا تُعاد */
                                         if (excludedInstIds[_sbn(inst3.id)]) continue;
                                         if (!Array.isArray(inst3.payments)) continue;
                                         for (var i5 = 0; i5 < inst3.payments.length; i5++) {
                                             var p3 = mkInstPayRow(con3.id, _sbn(inst3.id), inst3.payments[i5]);
-                                            if (p3) instPayRows.push(p3);
+                                            if (p3) { instPayRows.push(p3); instPayRefs.push(inst3.payments[i5]); }
                                         }
                                     }
                                 }
@@ -1160,20 +1189,52 @@ function sbSaveAll() {
                                            كي لا تُحفظ الدفعة نفسها مرتين */
                                         if (con3.payments[i6].instNumber != null) continue;
                                         var p4 = mkInstPayRow(con3.id, null, con3.payments[i6]);
-                                        if (p4) instPayRows.push(p4);
+                                        if (p4) { instPayRows.push(p4); instPayRefs.push(con3.payments[i6]); }
                                     }
                                 }
                             }
-                            if (instPayRows.length) {
-                                /* فحص خطأ إدراج دفعات الأقساط — لا يُبتلع خطأ الدفعات صامتاً،
-                                   وإلا يُظهر النظام «تم الحفظ بنجاح» والدفعات مفقودة فعلاً */
-                                return client.from('installment_payments').insert(instPayRows).then(function(pr) {
-                                    if (pr && pr.error) throw pr.error;
-                                    console.log('[sbSaveAll] دفعات أقساط أُرسلت=', instPayRows.length);
+                            var upsertPayRows = [];
+                            var insertPayRows = [];
+                            var insertRefs = [];
+                            for (var ipr = 0; ipr < instPayRows.length; ipr++) {
+                                if (instPayRows[ipr].id) upsertPayRows.push(instPayRows[ipr]);
+                                else { insertPayRows.push(instPayRows[ipr]); insertRefs.push(instPayRefs[ipr]); }
+                            }
+                            var payChain = Promise.resolve();
+                            if (upsertPayRows.length) {
+                                payChain = payChain.then(function() {
+                                    return _sbSendBatches(client, 'installment_payments', upsertPayRows, 'id', false).then(function(ur) {
+                                        if (ur && ur.error) throw ur.error;
+                                    });
                                 });
                             }
-                            console.log('[sbSaveAll] لا توجد دفعات أقساط لإرسالها (instPayRows=0)');
-                            return Promise.resolve();
+                            if (insertPayRows.length) {
+                                payChain = payChain.then(function() {
+                                    return _sbSendBatches(client, 'installment_payments', insertPayRows, null, true).then(function(ir) {
+                                        if (ir && ir.error) throw ir.error;
+                                        /* توثيق المعرّفات الجديدة في الذاكرة بترتيب
+                                           الإدراج — يمنع تكرار الدفعة في الحفظ التالي */
+                                        if (ir && Array.isArray(ir.data) && ir.data.length) {
+                                            for (var ni = 0; ni < insertRefs.length && ni < ir.data.length; ni++) {
+                                                var nid = _sbn(ir.data[ni].id);
+                                                if (nid > 0) {
+                                                    insertRefs[ni].serverId = nid;
+                                                    insertRefs[ni].id = 'r' + nid;
+                                                }
+                                            }
+                                        }
+                                    });
+                                });
+                            }
+                            var delIds = _sbConsumeInstPayDeletes();
+                            if (delIds.length) {
+                                payChain = payChain.then(function() {
+                                    return client.from('installment_payments').delete().in('id', delIds).then(function(dr) {
+                                        if (dr && dr.error) throw dr.error;
+                                    });
+                                });
+                            }
+                            return payChain;
                         })
                         .then(function() {
                             /* 9.5) سلة المحذوفات + سجل النشاط — إدراج/تحديث */
