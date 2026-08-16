@@ -4794,7 +4794,7 @@ function buildReceiptHTML(c, entry) {
     html += '</div>';
     html += '<div class="rc-box"><div class="rc-box-title">بيانات السداد</div>';
     html += '<div class="rc-row"><span>' + (entry.instNumber != null ? 'رقم القسط' : 'نوع الدفعة') + '</span><b>' + (entry.instNumber != null ? entry.instNumber : 'دفعة على العقد') + '</b></div>';
-    html += '<div class="rc-row"><span>عدد الدفعات المتبقية بعد هذه الدفعة</span><b>' + entry.remainingCount + '</b></div>';
+    html += '<div class="rc-row"><span>الدفعات المتبقية بعد هذه الدفعة</span><b>' + entry.remainingCount + '</b></div>';
     html += '<div class="rc-row"><span>الموظف المستلم</span><b>' + (pay.employee || '—') + '</b></div>';
     html += '</div>';
     html += '</div>';
