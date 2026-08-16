@@ -2271,6 +2271,8 @@ html[data-layout="centered"] .page {
 .rc-sign { display: flex; justify-content: space-between; margin: 26px 0 10px; font-size: .8rem; color: #374151; }
 .rc-sign .rc-sign-item { text-align: center; width: 220px; }
 .rc-sign .rc-sign-line { border-top: 1px dashed #9ca3af; margin-top: 34px; padding-top: 6px; font-size: .72rem; color: #6b7280; }
+.rc-sign .rc-stamp { width: 150px; }
+.rc-stamp-box { height: 108px; border: 2px dashed #9ca3af; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: .72rem; }
 .rc-footer { text-align: center; font-size: .72rem; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 10px; }
 
 /* طباعة الوصل منفرداً — يُفعل فقط عند فتح معاينة الوصل */
@@ -2329,6 +2331,8 @@ body.printing-receipt #receiptPrintRoot { display: block; }
     #receiptPrintRoot .rc-notes { font-size: .64rem; margin-bottom: 6px; }
     #receiptPrintRoot .rc-sign { margin: 8px 0 3px; font-size: .66rem; }
     #receiptPrintRoot .rc-sign .rc-sign-line { margin-top: 12px; padding-top: 3px; font-size: .6rem; }
+    #receiptPrintRoot .rc-sign .rc-stamp { width: 95px; }
+    #receiptPrintRoot .rc-stamp-box { height: 66px; border-width: 1.5px; font-size: .6rem; }
     #receiptPrintRoot .rc-footer { font-size: .6rem; padding-top: 4px; }
 }
 
