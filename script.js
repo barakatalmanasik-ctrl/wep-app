@@ -3452,6 +3452,11 @@ function recordDebtPayment(txId) {
     document.getElementById('debtPayTxId').value = txId;
     document.getElementById('debtPayAmount').value = '';
     setTodayDate('debtPayDate');
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('debtPayTime').value = hh + ':' + mm;
+    document.getElementById('debtPayEmployee').value = '';
     document.getElementById('debtPayNotes').value = '';
     var txs = getTransactions();
     var tx = null;
@@ -3470,6 +3475,8 @@ function submitDebtPayment(e) {
     var txId = safeNum(document.getElementById('debtPayTxId').value);
     var amount = safeNum(document.getElementById('debtPayAmount').value);
     var date = document.getElementById('debtPayDate').value;
+    var time = document.getElementById('debtPayTime').value || '';
+    var employee = document.getElementById('debtPayEmployee').value.trim();
     var notes = document.getElementById('debtPayNotes').value.trim();
 
     if (amount <= 0 || !date) {
@@ -3490,12 +3497,13 @@ function submitDebtPayment(e) {
     }
 
     if (!tx.debtPayments) tx.debtPayments = [];
-    tx.debtPayments.push({ date: String(date), amount: amount, notes: String(notes) });
+    tx.debtPayments.push({ date: String(date), time: time, amount: amount, employee: employee, notes: String(notes) });
 
     tx.amountPaid = safeNum(tx.amountPaid) + amount;
     tx.remainingAmount = Math.max(0, safeNum(tx.salePrice) - safeNum(tx.amountPaid));
 
     logActivity('تسجيل دفعة دين', 'مبلغ: ' + fmt(amount) + ' د.ع — #' + txId);
+    var payIndex = tx.debtPayments.length - 1;
     refreshApplicationState();
     closeAllModals();
     if (tx.remainingAmount <= 0) {
@@ -3503,6 +3511,7 @@ function submitDebtPayment(e) {
     } else {
         toast('تم تسجيل الدفعة — المتبقي: ' + fmt(tx.remainingAmount) + ' د.ع', 'success');
     }
+    openDebtReceiptPreview(txId, payIndex, 'ticket');
 }
 
 function openServiceDialog() {
@@ -3925,6 +3934,11 @@ function recordManualDebtPayment(id) {
     document.getElementById('manualDebtPayId').value = id;
     document.getElementById('manualDebtPayAmount').value = '';
     setTodayDate('manualDebtPayDate');
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('manualDebtPayTime').value = hh + ':' + mm;
+    document.getElementById('manualDebtPayEmployee').value = '';
     document.getElementById('manualDebtPayNotes').value = '';
     var debts = getManualDebts();
     var item = null;
@@ -3941,6 +3955,8 @@ function submitManualDebtPayment(e) {
     var id = safeNum(document.getElementById('manualDebtPayId').value);
     var amount = safeNum(document.getElementById('manualDebtPayAmount').value);
     var date = document.getElementById('manualDebtPayDate').value;
+    var time = document.getElementById('manualDebtPayTime').value || '';
+    var employee = document.getElementById('manualDebtPayEmployee').value.trim();
     var notes = document.getElementById('manualDebtPayNotes').value.trim();
     if (amount <= 0 || !date) { toast('يرجى إدخال مبلغ وتاريخ صحيحين', 'error'); return; }
     var debts = getManualDebts();
@@ -3951,13 +3967,15 @@ function submitManualDebtPayment(e) {
     if (!item) return;
     if (amount > safeNum(item.remaining)) { toast('المبلغ أكبر من المتبقي', 'error'); return; }
     if (!item.payments) item.payments = [];
-    item.payments.push({ date: String(date), amount: amount, notes: String(notes) });
+    item.payments.push({ date: String(date), time: time, amount: amount, employee: employee, notes: String(notes) });
     item.amountPaid = safeNum(item.amountPaid) + amount;
     item.remaining = Math.max(0, safeNum(item.totalAmount) - safeNum(item.amountPaid));
     setManualDebts(debts);
+    var payIndex = item.payments.length - 1;
     closeAllModals();
     refreshApplicationState();
     toast('تم تسجيل الدفعة بنجاح', 'success');
+    openDebtReceiptPreview(id, payIndex, 'manual');
 }
 
 function showDebtDetail(id) {
@@ -3983,10 +4001,11 @@ function showDebtDetail(id) {
     html += '</div>';
     if (item.payments && item.payments.length > 0) {
         html += '<div style="margin-top:16px"><h4 style="margin-bottom:8px"><i data-lucide="history" style="width:18px;height:18px;vertical-align:middle"></i> سجل الدفعات</h4>';
-        html += '<table class="table"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>ملاحظات</th></tr></thead><tbody>';
+        html += '<table class="table"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>ملاحظات</th><th>إجراء</th></tr></thead><tbody>';
         for (var p = 0; p < item.payments.length; p++) {
             var pay = item.payments[p];
-            html += '<tr><td>' + pay.date + '</td><td>' + fmt(safeNum(pay.amount)) + '</td><td>' + (pay.notes || '—') + '</td></tr>';
+            html += '<tr><td>' + pay.date + '</td><td>' + fmt(safeNum(pay.amount)) + '</td><td>' + (pay.notes || '—') + '</td>';
+            html += '<td><button class="btn-sm btn-green" onclick="openDebtReceiptPreview(' + item.id + ',' + p + ',\'manual\')"><i data-lucide="printer" style="width:14px;height:14px"></i> طباعة الوصل</button></td></tr>';
         }
         html += '</tbody></table></div>';
     }
@@ -4859,6 +4878,117 @@ function closeReceipt() {
 
 function printReceiptNow() {
     window.print();
+}
+
+/* ═══════════════════════════════════════
+   وصل سداد الدين — نفس تصميم وصل الأقساط
+═══════════════════════════════════════ */
+function buildDebtReceiptHTML(debt, pay, payIndex, debtType) {
+    var co = BARAKAT_COMPANY;
+    var dt = pay.date || '—';
+    var tm = pay.time || '—';
+    var receiptNo = 'RCP-D-' + (pay.id || (String(dt).replace(/-/g, '') + '-' + (payIndex + 1)));
+    var html = '<div class="receipt-sheet">';
+
+    html += '<div class="rc-top">';
+    html += '<img class="rc-logo" src="' + BARAKAT_LOGO_SRC + '" alt="' + co.name + '" onerror="this.style.display=\'none\'">';
+    html += '<div class="rc-name">' + co.name + '</div>';
+    html += '</div>';
+
+    html += '<div class="rc-services">';
+    html += '<div class="rc-services-grid">';
+    html += '<div class="rc-svc">✈️ تذاكر الطيران</div>';
+    html += '<div class="rc-svc">🏨 حجوزات الفنادق</div>';
+    html += '<div class="rc-svc">🚆 حجوزات القطارات</div>';
+    html += '<div class="rc-svc">🚗 حجوزات السيارات</div>';
+    html += '<div class="rc-svc">📱 شرائح eSIM</div>';
+    html += '<div class="rc-svc">🛂 خدمات الفيزا</div>';
+    html += '</div></div>';
+
+    html += '<div class="rc-divider"></div>';
+
+    html += '<div class="rc-card">';
+    html += '<div class="rc-card-title">وصل سداد دين</div>';
+    html += '<div class="rc-card-meta">رقم الوصل: ' + receiptNo + ' &nbsp;&bull;&nbsp; تاريخ الدفع: ' + dt + ' &nbsp;&bull;&nbsp; وقت الدفع: ' + tm + '</div>';
+
+    html += '<div class="rc-amount-row">';
+    html += '<div class="rc-amt rc-amt-paid"><div class="rc-amt-label">مبلغ الدفعة</div><div class="rc-amt-value">' + fmt(safeNum(pay.amount)) + ' د.ع</div></div>';
+    html += '<div class="rc-amt rc-amt-rem"><div class="rc-amt-label">المبلغ المتبقي بعد هذه الدفعة</div><div class="rc-amt-value">' + fmt(safeNum(debt.remaining)) + ' د.ع</div></div>';
+    html += '</div>';
+
+    html += '<div class="rc-info">';
+    html += '<div class="rc-info-row"><span class="rc-info-label">اسم العميل</span><span class="rc-info-value">' + (debt.name || '—') + '</span></div>';
+    html += '<div class="rc-info-row"><span class="rc-info-label">إجمالي الدين</span><span class="rc-info-value">' + fmt(safeNum(debt.totalAmount || debt.salePrice)) + ' د.ع</span></div>';
+    html += '<div class="rc-info-row"><span class="rc-info-label">إجمالي المدفوع</span><span class="rc-info-value">' + fmt(safeNum(debt.amountPaid)) + ' د.ع</span></div>';
+    if (debtType === 'manual' && debt.reason) {
+        html += '<div class="rc-info-row"><span class="rc-info-label">سبب الدين</span><span class="rc-info-value">' + (debt.reason || '—') + '</span></div>';
+    }
+    html += '<div class="rc-info-row"><span class="rc-info-label">الموظف المستلم</span><span class="rc-info-value">' + (pay.employee || '—') + '</span></div>';
+    html += '</div>';
+
+    html += '<div class="rc-sign-row">';
+    html += '<div class="rc-sign-col">';
+    html += '<div class="rc-sign-space"></div>';
+    html += '<div class="rc-sign-label">توقيع الموظف المستلم</div>';
+    html += '</div>';
+    html += '<div class="rc-sign-col">';
+    html += '<div class="rc-stamp-box">ختم الشركة</div>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+
+    var contactLines = [];
+    for (var ci = 0; ci < (co.contacts || []).length; ci++) {
+        if (co.contacts[ci].value) contactLines.push(co.contacts[ci].label + ': ' + co.contacts[ci].value);
+    }
+    html += '<div class="rc-contact-section">';
+    html += '<div class="rc-contact-title">معلومات التواصل</div>';
+    html += '<div class="rc-contact-office">المكتب: كربلاء المقدسة – قضاء الحر – قرب مرقد الحر</div>';
+    if (contactLines.length) html += '<div class="rc-contact-items">' + contactLines.join(' &nbsp;|&nbsp; ') + '</div>';
+    html += '</div>';
+
+    html += '<div class="rc-footer">' + co.name + ' — شكراً لتعاملكم معنا</div>';
+    html += '</div>';
+    return html;
+}
+
+function openDebtReceiptPreview(debtId, payIndex, debtType) {
+    var debt = null;
+    if (debtType === 'manual') {
+        var debts = getManualDebts();
+        for (var i = 0; i < debts.length; i++) {
+            if (safeNum(debts[i].id) === safeNum(debtId)) { debt = debts[i]; break; }
+        }
+        if (!debt) { toast('تعذر العثور على الدين', 'error'); return; }
+        var pay = debt.payments && debt.payments[payIndex];
+        if (!pay) { toast('تعذر العثور على الدفعة', 'error'); return; }
+        var html = buildDebtReceiptHTML(debt, pay, payIndex, 'manual');
+        var bodyEl = document.getElementById('receiptBody');
+        var rootEl = document.getElementById('receiptPrintRoot');
+        if (bodyEl) bodyEl.innerHTML = html;
+        if (rootEl) rootEl.innerHTML = html;
+        document.body.classList.add('printing-receipt');
+        showModal('receiptModal');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } else {
+        var txs = getTransactions();
+        for (var j = 0; j < txs.length; j++) {
+            if (safeNum(txs[j].id) === safeNum(debtId)) { debt = txs[j]; break; }
+        }
+        if (!debt) { toast('تعذر العثور على الدين', 'error'); return; }
+        var pay2 = debt.debtPayments && debt.debtPayments[payIndex];
+        if (!pay2) { toast('تعذر العثور على الدفعة', 'error'); return; }
+        var debtObj = { name: debt.clientName || '', totalAmount: debt.salePrice, amountPaid: debt.amountPaid, remaining: debt.remainingAmount };
+        var html2 = buildDebtReceiptHTML(debtObj, pay2, payIndex, 'ticket');
+        var bodyEl2 = document.getElementById('receiptBody');
+        var rootEl2 = document.getElementById('receiptPrintRoot');
+        if (bodyEl2) bodyEl2.innerHTML = html2;
+        if (rootEl2) rootEl2.innerHTML = html2;
+        document.body.classList.add('printing-receipt');
+        showModal('receiptModal');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
 }
 
 function renderInstallments() {

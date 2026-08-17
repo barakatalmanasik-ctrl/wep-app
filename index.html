@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
     <link rel="stylesheet" href="libs/cairo.css">
-    <link rel="stylesheet" href="style.css?v=34">
+    <link rel="stylesheet" href="style.css?v=35">
     <script>
     /* تطبيق تفضيلات الواجهة (المظهر/الخط/الكثافة/التخطيط) قبل الرسم الأول — لمنع الوميض */
     (function() {
@@ -1650,6 +1650,14 @@
                     <input type="date" class="field" id="debtPayDate" required>
                 </div>
                 <div class="field-group">
+                    <label>الوقت</label>
+                    <input type="time" class="field" id="debtPayTime">
+                </div>
+                <div class="field-group">
+                    <label>الموظف المستلم</label>
+                    <input type="text" class="field" id="debtPayEmployee" placeholder="اسم الموظف...">
+                </div>
+                <div class="field-group">
                     <label>ملاحظات</label>
                     <input type="text" class="field" id="debtPayNotes" placeholder="اختياري...">
                 </div>
@@ -1738,6 +1746,14 @@
                 <div class="field-group">
                     <label>التاريخ</label>
                     <input type="date" class="field" id="manualDebtPayDate" required>
+                </div>
+                <div class="field-group">
+                    <label>الوقت</label>
+                    <input type="time" class="field" id="manualDebtPayTime">
+                </div>
+                <div class="field-group">
+                    <label>الموظف المستلم</label>
+                    <input type="text" class="field" id="manualDebtPayEmployee" placeholder="اسم الموظف...">
                 </div>
                 <div class="field-group">
                     <label>ملاحظات</label>
@@ -1941,7 +1957,7 @@
     <script src="migration.js?v=27"></script>
     <script src="supabase-client.js?v=19"></script>
     <script src="supabase-db.js?v=27"></script>
-    <script src="script.js?v=32"></script>
+    <script src="script.js?v=35"></script>
     <script>
     /* ═══════════════════════════════════════
        PWA — Service Worker + Install

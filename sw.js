@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   Service Worker — بركات المناسك v29.2
+   Service Worker — بركات المناسك v30.0
    ═══════════════════════════════════════════════════
    
    للتبديل بين الأوضاع:
@@ -15,7 +15,7 @@ var DEV_MODE = false;
    الإعدادات
    ═══════════════════════════════════════════════════ */
 
-var CACHE_NAME = DEV_MODE ? 'barakat-dev-v29.2.0' : 'barakat-prod-v29.2.0';
+var CACHE_NAME = DEV_MODE ? 'barakat-dev-v30.0.0' : 'barakat-prod-v30.0.0';
 var CACHE_OLD_PREFIX = 'barakat-';
 var FONT_CACHE = 'barakat-fonts-v1';
 
