@@ -4767,41 +4767,56 @@ var BARAKAT_LOGO_SRC = 'icons/logo-barakat.png';
 function buildReceiptHTML(c, entry) {
     var pay = entry.pay || {};
     var co = BARAKAT_COMPANY;
-    var contactBits = [];
-    for (var ci = 0; ci < (co.contacts || []).length; ci++) {
-        if (co.contacts[ci].value) contactBits.push(co.contacts[ci].label + ': ' + co.contacts[ci].value);
-    }
     var dt = pay.date || '—';
     var tm = pay.time || '—';
     var receiptNo = 'RCP-' + (pay.id || (String(dt).replace(/-/g, '') + '-' + (entry.index + 1)));
     var html = '<div class="receipt-sheet">';
-    html += '<div class="rc-header">';
+
+    html += '<div class="rc-top">';
     html += '<img class="rc-logo" src="' + BARAKAT_LOGO_SRC + '" alt="' + co.name + '" onerror="this.style.display=\'none\'">';
-    html += '<div class="rc-company">';
     html += '<div class="rc-name">' + co.name + '</div>';
-    if (contactBits.length) html += '<div class="rc-contact">' + contactBits.join('<br>') + '</div>';
-    html += '</div></div>';
+    var contactLines = [];
+    for (var ci = 0; ci < (co.contacts || []).length; ci++) {
+        if (co.contacts[ci].value) contactLines.push(co.contacts[ci].label + ': ' + co.contacts[ci].value);
+    }
+    if (contactLines.length) html += '<div class="rc-contact-top">' + contactLines.join(' &nbsp;|&nbsp; ') + '</div>';
+    html += '</div>';
+
     html += '<div class="rc-divider"></div>';
-    html += '<div class="rc-title">وصل سداد قسط</div>';
-    html += '<div class="rc-meta">رقم الوصل: ' + receiptNo + ' &nbsp;|&nbsp; تاريخ الدفع: ' + dt + ' &nbsp;|&nbsp; وقت الدفع: ' + tm + '</div>';
-    html += '<div class="rc-amount">';
+
+    html += '<div class="rc-card">';
+    html += '<div class="rc-card-title">وصل سداد قسط</div>';
+    html += '<div class="rc-card-meta">رقم الوصل: ' + receiptNo + ' &nbsp;&bull;&nbsp; تاريخ الدفع: ' + dt + ' &nbsp;&bull;&nbsp; وقت الدفع: ' + tm + '</div>';
+
+    html += '<div class="rc-amount-row">';
     html += '<div class="rc-amt rc-amt-paid"><div class="rc-amt-label">مبلغ الدفعة</div><div class="rc-amt-value">' + fmt(safeNum(pay.amount)) + ' د.ع</div></div>';
     html += '<div class="rc-amt rc-amt-rem"><div class="rc-amt-label">المبلغ المتبقي بعد هذه الدفعة</div><div class="rc-amt-value">' + fmt(entry.remainingAfter) + ' د.ع</div></div>';
     html += '</div>';
-    html += '<div class="rc-grid">';
-    html += '<div class="rc-box"><div class="rc-box-title">بيانات العميل</div>';
-    html += '<div class="rc-row"><span>اسم العميل</span><b>' + (entry.clientName || '—') + '</b></div>';
+
+    html += '<div class="rc-info">';
+    html += '<div class="rc-info-row"><span class="rc-info-label">اسم العميل</span><span class="rc-info-value">' + (entry.clientName || '—') + '</span></div>';
+    html += '<div class="rc-info-row"><span class="rc-info-label">' + (entry.instNumber != null ? 'رقم القسط' : 'نوع الدفعة') + '</span><span class="rc-info-value">' + (entry.instNumber != null ? entry.instNumber : 'دفعة على العقد') + '</span></div>';
+    html += '<div class="rc-info-row"><span class="rc-info-label">الدفعات المتبقية</span><span class="rc-info-value">' + entry.remainingCount + '</span></div>';
+    html += '<div class="rc-info-row"><span class="rc-info-label">الموظف المستلم</span><span class="rc-info-value">' + (pay.employee || '—') + '</span></div>';
     html += '</div>';
-    html += '<div class="rc-box"><div class="rc-box-title">بيانات السداد</div>';
-    html += '<div class="rc-row"><span>' + (entry.instNumber != null ? 'رقم القسط' : 'نوع الدفعة') + '</span><b>' + (entry.instNumber != null ? entry.instNumber : 'دفعة على العقد') + '</b></div>';
-    html += '<div class="rc-row"><span>الدفعات المتبقية بعد هذه الدفعة</span><b>' + entry.remainingCount + '</b></div>';
-    html += '<div class="rc-row"><span>الموظف المستلم</span><b>' + (pay.employee || '—') + '</b></div>';
+
+    html += '<div class="rc-sign-row">';
+    html += '<div class="rc-sign-col">';
+    html += '<div class="rc-sign-space"></div>';
+    html += '<div class="rc-sign-label">توقيع الموظف المستلم</div>';
+    html += '</div>';
+    html += '<div class="rc-sign-col">';
+    html += '<div class="rc-stamp-box">ختم الشركة</div>';
     html += '</div>';
     html += '</div>';
-    html += '<div class="rc-sign">';
-    html += '<div class="rc-sign-item"><div class="rc-sign-line">توقيع الموظف المستلم</div></div>';
-    html += '<div class="rc-sign-item rc-stamp"><div class="rc-stamp-box">ختم الشركة</div></div>';
+
     html += '</div>';
+
+    html += '<div class="rc-contact-section">';
+    html += '<div class="rc-contact-title">للتواصل معنا</div>';
+    if (contactLines.length) html += '<div class="rc-contact-items">' + contactLines.join(' &nbsp;|&nbsp; ') + '</div>';
+    html += '</div>';
+
     html += '<div class="rc-footer">' + co.name + ' — شكراً لتعاملكم معنا</div>';
     html += '</div>';
     return html;
