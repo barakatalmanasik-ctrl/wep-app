@@ -2249,13 +2249,11 @@ html[data-layout="centered"] .page {
 .rc-top { text-align: center; margin-bottom: 16px; }
 .rc-logo { width: 90px; height: 90px; object-fit: contain; border-radius: 16px; display: block; margin: 0 auto 10px; }
 .rc-name { font-size: 1.65rem; font-weight: 900; color: #1a6b4e; }
-.rc-contact-top { font-size: .9rem; color: #4b5563; margin-top: 6px; font-weight: 600; }
 
 /* ── خدمات الشركة ── */
 .rc-services { text-align: center; margin-bottom: 16px; }
-.rc-services-title { font-size: .8rem; font-weight: 800; color: #1a6b4e; margin-bottom: 6px; }
 .rc-services-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; }
-.rc-svc { font-size: .78rem; color: #374151; white-space: nowrap; }
+.rc-svc { font-size: .82rem; color: #374151; white-space: nowrap; }
 
 /* ── خط فاصل أخضر مزدوج ── */
 .rc-divider { border-top: 3px double #1a6b4e; margin: 16px 0 20px; }
@@ -2328,8 +2326,9 @@ html[data-layout="centered"] .page {
     border-top: 2px solid #1a6b4e;
     margin-bottom: 10px;
 }
-.rc-contact-title { font-size: .95rem; font-weight: 800; color: #1a6b4e; margin-bottom: 6px; }
-.rc-contact-items { font-size: .78rem; color: #4b5563; }
+.rc-contact-title { font-size: 1rem; font-weight: 800; color: #1a6b4e; margin-bottom: 6px; }
+.rc-contact-office { font-size: .82rem; color: #374151; margin-bottom: 4px; font-weight: 600; }
+.rc-contact-items { font-size: .85rem; color: #4b5563; }
 
 /* ── التذييل ── */
 .rc-footer { text-align: center; font-size: .72rem; color: #9ca3af; padding-top: 8px; }
@@ -2369,9 +2368,7 @@ body.printing-receipt #receiptPrintRoot { display: block; }
     }
     #receiptPrintRoot .rc-logo { width: 54px; height: 54px; border-radius: 10px; margin-bottom: 4px; }
     #receiptPrintRoot .rc-name { font-size: 1.15rem; }
-    #receiptPrintRoot .rc-contact-top { font-size: .72rem; margin-top: 3px; }
     #receiptPrintRoot .rc-services { margin-bottom: 6px; }
-    #receiptPrintRoot .rc-services-title { font-size: .66rem; margin-bottom: 3px; }
     #receiptPrintRoot .rc-svc { font-size: .64rem; }
     #receiptPrintRoot .rc-divider { margin: 6px 0 8px; }
     #receiptPrintRoot .rc-card { padding: 12px 16px; border-width: 1.5px; border-radius: 10px; margin-bottom: 10px; }
@@ -2388,7 +2385,8 @@ body.printing-receipt #receiptPrintRoot { display: block; }
     #receiptPrintRoot .rc-stamp-box { width: 90px; height: 76px; border-width: 1.5px; font-size: .62rem; }
     #receiptPrintRoot .rc-contact-section { padding: 8px 0; border-width: 1.5px; margin-bottom: 6px; }
     #receiptPrintRoot .rc-contact-title { font-size: .78rem; margin-bottom: 3px; }
-    #receiptPrintRoot .rc-contact-items { font-size: .64rem; }
+    #receiptPrintRoot .rc-contact-office { font-size: .68rem; margin-bottom: 2px; }
+    #receiptPrintRoot .rc-contact-items { font-size: .68rem; }
     #receiptPrintRoot .rc-footer { font-size: .6rem; padding-top: 4px; }
 }
 

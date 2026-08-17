@@ -4775,20 +4775,14 @@ function buildReceiptHTML(c, entry) {
     html += '<div class="rc-top">';
     html += '<img class="rc-logo" src="' + BARAKAT_LOGO_SRC + '" alt="' + co.name + '" onerror="this.style.display=\'none\'">';
     html += '<div class="rc-name">' + co.name + '</div>';
-    var contactLines = [];
-    for (var ci = 0; ci < (co.contacts || []).length; ci++) {
-        if (co.contacts[ci].value) contactLines.push(co.contacts[ci].label + ': ' + co.contacts[ci].value);
-    }
-    if (contactLines.length) html += '<div class="rc-contact-top">' + contactLines.join(' &nbsp;|&nbsp; ') + '</div>';
     html += '</div>';
 
     html += '<div class="rc-services">';
-    html += '<div class="rc-services-title">خدماتنا</div>';
     html += '<div class="rc-services-grid">';
-    html += '<div class="rc-svc">✈️ حجوزات تذاكر الطيران</div>';
+    html += '<div class="rc-svc">✈️ تذاكر الطيران</div>';
     html += '<div class="rc-svc">🏨 حجوزات الفنادق</div>';
     html += '<div class="rc-svc">🚆 حجوزات القطارات</div>';
-    html += '<div class="rc-svc">🚗 حجز السيارات</div>';
+    html += '<div class="rc-svc">🚗 حجوزات السيارات</div>';
     html += '<div class="rc-svc">📱 شرائح eSIM</div>';
     html += '<div class="rc-svc">🛂 خدمات الفيزا</div>';
     html += '</div></div>';
@@ -4823,8 +4817,13 @@ function buildReceiptHTML(c, entry) {
 
     html += '</div>';
 
+    var contactLines = [];
+    for (var ci = 0; ci < (co.contacts || []).length; ci++) {
+        if (co.contacts[ci].value) contactLines.push(co.contacts[ci].label + ': ' + co.contacts[ci].value);
+    }
     html += '<div class="rc-contact-section">';
-    html += '<div class="rc-contact-title">للتواصل معنا</div>';
+    html += '<div class="rc-contact-title">معلومات التواصل</div>';
+    html += '<div class="rc-contact-office">المكتب: كربلاء المقدسة – قضاء الحر – قرب مرقد الحر</div>';
     if (contactLines.length) html += '<div class="rc-contact-items">' + contactLines.join(' &nbsp;|&nbsp; ') + '</div>';
     html += '</div>';
 
