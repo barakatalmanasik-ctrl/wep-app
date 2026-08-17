@@ -2338,7 +2338,7 @@ html[data-layout="centered"] .page {
 ═════════════════════════════════════════ */
 body.printing-receipt #receiptPrintRoot { display: block; }
 
-@page receipt { size: A4; margin: 8mm 10mm; }
+@page receipt { size: A4; margin: 10mm 12mm; }
 
 @media print {
     body.printing-receipt, body.printing-receipt * { visibility: hidden; }
@@ -2355,39 +2355,74 @@ body.printing-receipt #receiptPrintRoot { display: block; }
         padding: 0;
         page: receipt;
     }
+
+    /* ── الورقة: يملأ كامل مساحة A4 القابلة للطباعة ── */
     #receiptPrintRoot .receipt-sheet {
         box-shadow: none;
         border-radius: 0;
         max-width: 100%;
-        padding: 2mm 4mm;
+        width: 186mm;
+        min-height: 272mm;
+        padding: 10mm 14mm;
         break-inside: avoid;
         page-break-inside: avoid;
         box-sizing: border-box;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
-    #receiptPrintRoot .rc-logo { width: 54px; height: 54px; border-radius: 10px; margin-bottom: 4px; }
-    #receiptPrintRoot .rc-name { font-size: 1.15rem; }
-    #receiptPrintRoot .rc-services { margin-bottom: 6px; }
-    #receiptPrintRoot .rc-svc { font-size: .64rem; }
-    #receiptPrintRoot .rc-divider { margin: 6px 0 8px; }
-    #receiptPrintRoot .rc-card { padding: 12px 16px; border-width: 1.5px; border-radius: 10px; margin-bottom: 10px; }
-    #receiptPrintRoot .rc-card-title { font-size: 1.1rem; margin-bottom: 2px; }
-    #receiptPrintRoot .rc-card-meta { font-size: .68rem; margin-bottom: 8px; }
-    #receiptPrintRoot .rc-amount-row { gap: 8px; margin-bottom: 10px; }
-    #receiptPrintRoot .rc-amt { padding: 8px 6px; border-radius: 8px; }
-    #receiptPrintRoot .rc-amt-label { font-size: .62rem; }
-    #receiptPrintRoot .rc-amt-value { font-size: .95rem; margin-top: 2px; }
-    #receiptPrintRoot .rc-info { margin-bottom: 12px; }
-    #receiptPrintRoot .rc-info-row { padding: 4px 0; font-size: .72rem; }
-    #receiptPrintRoot .rc-sign-space { height: 30px; }
-    #receiptPrintRoot .rc-sign-label { font-size: .6rem; padding-top: 3px; }
-    #receiptPrintRoot .rc-stamp-box { width: 90px; height: 76px; border-width: 1.5px; font-size: .62rem; }
-    #receiptPrintRoot .rc-contact-section { padding: 8px 0; border-width: 1.5px; margin-bottom: 6px; }
-    #receiptPrintRoot .rc-contact-title { font-size: .78rem; margin-bottom: 3px; }
-    #receiptPrintRoot .rc-contact-office { font-size: .68rem; margin-bottom: 2px; }
-    #receiptPrintRoot .rc-contact-items { font-size: .68rem; }
-    #receiptPrintRoot .rc-footer { font-size: .6rem; padding-top: 4px; }
+
+    /* ── الشعار + اسم الشركة ── */
+    #receiptPrintRoot .rc-top { margin-bottom: 8mm; }
+    #receiptPrintRoot .rc-logo { width: 110px; height: 110px; border-radius: 18px; margin-bottom: 6px; }
+    #receiptPrintRoot .rc-name { font-size: 1.7rem; }
+
+    /* ── الخدمات ── */
+    #receiptPrintRoot .rc-services { margin-bottom: 6mm; }
+    #receiptPrintRoot .rc-svc { font-size: .92rem; }
+
+    /* ── الخط الفاصل ── */
+    #receiptPrintRoot .rc-divider { margin: 6mm 0 8mm; border-top-width: 3px; }
+
+    /* ── بطاقة الوصل ── */
+    #receiptPrintRoot .rc-card {
+        border-width: 2.5px;
+        border-radius: 16px;
+        padding: 22px 28px;
+        margin-bottom: 8mm;
+        flex: 1;
+    }
+    #receiptPrintRoot .rc-card-title { font-size: 1.55rem; margin-bottom: 4px; }
+    #receiptPrintRoot .rc-card-meta { font-size: .92rem; margin-bottom: 14px; }
+
+    /* ── صندوقا المبلغ ── */
+    #receiptPrintRoot .rc-amount-row { gap: 14px; margin-bottom: 18px; }
+    #receiptPrintRoot .rc-amt { padding: 16px 14px; border-radius: 12px; }
+    #receiptPrintRoot .rc-amt-label { font-size: .88rem; }
+    #receiptPrintRoot .rc-amt-value { font-size: 1.5rem; margin-top: 4px; }
+
+    /* ── صفوف المعلومات ── */
+    #receiptPrintRoot .rc-info { margin-bottom: 18px; }
+    #receiptPrintRoot .rc-info-row { padding: 8px 0; font-size: 1.05rem; }
+    #receiptPrintRoot .rc-info-label { font-size: 1rem; }
+    #receiptPrintRoot .rc-info-value { font-size: 1.05rem; }
+
+    /* ── التوقيع + الختم ── */
+    #receiptPrintRoot .rc-sign-row { margin-top: 10px; }
+    #receiptPrintRoot .rc-sign-space { height: 55px; }
+    #receiptPrintRoot .rc-sign-label { font-size: .85rem; padding-top: 6px; }
+    #receiptPrintRoot .rc-stamp-box { width: 150px; height: 130px; border-width: 2px; font-size: .88rem; border-radius: 10px; }
+
+    /* ── التواصل السفلي ── */
+    #receiptPrintRoot .rc-contact-section { padding: 10px 0; border-width: 2px; margin-bottom: 4px; }
+    #receiptPrintRoot .rc-contact-title { font-size: 1.1rem; margin-bottom: 5px; }
+    #receiptPrintRoot .rc-contact-office { font-size: .92rem; margin-bottom: 4px; }
+    #receiptPrintRoot .rc-contact-items { font-size: .92rem; }
+
+    /* ── التذييل ── */
+    #receiptPrintRoot .rc-footer { font-size: .78rem; padding-top: 6px; }
 }
 
 /* ═══════════════════════════════════════════════════════
