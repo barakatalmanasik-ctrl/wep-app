@@ -4782,6 +4782,17 @@ function buildReceiptHTML(c, entry) {
     if (contactLines.length) html += '<div class="rc-contact-top">' + contactLines.join(' &nbsp;|&nbsp; ') + '</div>';
     html += '</div>';
 
+    html += '<div class="rc-services">';
+    html += '<div class="rc-services-title">خدماتنا</div>';
+    html += '<div class="rc-services-grid">';
+    html += '<div class="rc-svc">✈️ حجوزات تذاكر الطيران</div>';
+    html += '<div class="rc-svc">🏨 حجوزات الفنادق</div>';
+    html += '<div class="rc-svc">🚆 حجوزات القطارات</div>';
+    html += '<div class="rc-svc">🚗 حجز السيارات</div>';
+    html += '<div class="rc-svc">📱 شرائح eSIM</div>';
+    html += '<div class="rc-svc">🛂 خدمات الفيزا</div>';
+    html += '</div></div>';
+
     html += '<div class="rc-divider"></div>';
 
     html += '<div class="rc-card">';
